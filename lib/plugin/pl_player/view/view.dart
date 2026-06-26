@@ -130,7 +130,6 @@ class PLVideoPlayer extends StatefulWidget {
 class _PLVideoPlayerState extends State<PLVideoPlayer>
     with WidgetsBindingObserver, TickerProviderStateMixin {
   late AnimationController _animationController;
-  late VideoController videoController;
   late final CommonIntroController introController = widget.introController!;
   late final VideoDetailController videoDetailController =
       widget.videoDetailController!;
@@ -264,7 +263,6 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       vsync: this,
       duration: const Duration(milliseconds: 100),
     );
-    videoController = plPlayerController.videoController!;
 
     if (PlatformUtils.isMobile) {
       Future.microtask(() {
@@ -330,16 +328,15 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!plPlayerController.continuePlayInBackground.value) {
-      late final player = plPlayerController.videoPlayerController;
       if (const <AppLifecycleState>[.paused, .detached].contains(state)) {
-        if (player != null && player.state.playing) {
+        if (plPlayerController.isCurrentPlayerPlaying) {
           _pauseDueToPauseUponEnteringBackgroundMode = true;
-          player.pause();
+          plPlayerController.pause();
         }
       } else {
         if (_pauseDueToPauseUponEnteringBackgroundMode) {
           _pauseDueToPauseUponEnteringBackgroundMode = false;
-          player?.play();
+          plPlayerController.play();
         }
       }
     }
@@ -483,6 +480,9 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       /// 超分辨率
       BottomControlType.superResolution => Obx(
         () {
+          if (!plPlayerController.supportsMpvFeatures) {
+            return const SizedBox.shrink();
+          }
           final type = plPlayerController.superResolutionType.value;
           return PopupMenuButton<SuperResolutionType>(
             tooltip: '超分辨率',
@@ -907,7 +907,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         isFullScreen || plPlayerController.isDesktopPip || maxWidth >= 500;
     final List<BottomControlType> userSpecifyItemRight = [
       if (isNotFileSource && plPlayerController.showDmChart) .dmChart,
-      if (plPlayerController.isAnim) .superResolution,
+      if (plPlayerController.isAnim && plPlayerController.supportsMpvFeatures)
+        .superResolution,
       if (isNotFileSource && plPlayerController.showViewPoints) .viewPoints,
       if (isNotFileSource && anySeason) .episode,
       if (flag) .fit,
@@ -1377,13 +1378,13 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         if (widget.danmuWidget case final danmaku?)
           Positioned.fill(top: 4, child: danmaku),
 
-        if (!isLive)
+        if (!isLive && plPlayerController.supportsFlutterSubtitle)
           Positioned.fill(
             child: IgnorePointer(
               ignoring: !plPlayerController.enableDragSubtitle,
               child: Obx(
                 () => SubtitleView(
-                  controller: videoController,
+                  controller: plPlayerController.videoController!,
                   configuration: plPlayerController.subtitleConfig.value,
                   enableDragSubtitle: plPlayerController.enableDragSubtitle,
                   onUpdatePadding: plPlayerController.onUpdatePadding,
@@ -1868,7 +1869,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             ),
 
           // 截图
-          if (plPlayerController.showFsScreenshotBtn)
+          if (plPlayerController.showFsScreenshotBtn &&
+              plPlayerController.supportsScreenshot)
             ViewSafeArea(
               left: false,
               right: !plPlayerController.removeSafeArea,
@@ -2075,8 +2077,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                   child: FittedBox(
                     fit: videoFit.boxFit,
                     alignment: widget.alignment,
-                    child: SimpleVideo(
-                      controller: plPlayerController.videoController!,
+                    child: plPlayerController.buildVideoSurface(
                       fill: widget.fill,
                       aspectRatio: videoFit.aspectRatio,
                     ),

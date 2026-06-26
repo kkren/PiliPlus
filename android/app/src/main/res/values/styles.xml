@@ -22,5 +22,9 @@
         <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="o_mr1">shortEdges</item>
     </style>
 
+    <style name="PiliPlusMedia3PlayerView">
+        <item name="surface_type">surface_view</item>
+    </style>
+
     <style name="Ucrop.CropTheme" parent="Theme.AppCompat.Light.NoActionBar"/>
 </resources>

@@ -33,6 +33,7 @@ import 'package:PiliPlus/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/hwdec_type.dart';
+import 'package:PiliPlus/plugin/pl_player/models/player_engine.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
@@ -761,6 +762,9 @@ abstract final class Pref {
 
   static bool get enableHA =>
       _setting.get(SettingBoxKey.enableHA, defaultValue: true);
+
+  static PlayerEngine get playerEngine =>
+      PlayerEngine.fromIndex(_setting.get(SettingBoxKey.playerEngine));
 
   static Set<int> get danmakuBlockType => Set<int>.from(
     _setting.get(SettingBoxKey.danmakuBlockType, defaultValue: const <int>{}),

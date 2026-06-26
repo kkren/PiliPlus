@@ -11,12 +11,11 @@ class ExtraSetting extends StatefulWidget {
 }
 
 class _ExtraSettingState extends State<ExtraSetting> {
-  final settings = extraSettings;
-
   @override
   Widget build(BuildContext context) {
     final showAppBar = widget.showAppBar;
     final padding = MediaQuery.viewPaddingOf(context);
+    final settings = extraSettings;
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: showAppBar ? AppBar(title: const Text('其它设置')) : null,
@@ -27,8 +26,14 @@ class _ExtraSettingState extends State<ExtraSetting> {
           bottom: padding.bottom + 100,
         ),
         itemCount: settings.length,
-        itemBuilder: (context, index) => settings[index].widget,
+        itemBuilder: (context, index) => settings[index].buildWidget(refresh),
       ),
     );
+  }
+
+  void refresh() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 }

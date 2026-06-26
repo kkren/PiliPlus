@@ -464,26 +464,29 @@ class _PostPanelState extends State<PostPanel>
             tooltip: '预览',
             icon: const Icon(Icons.preview_outlined),
             onPressed: () async {
-              final player = plPlayerController.videoPlayerController;
-              if (player != null) {
+              if (plPlayerController.hasPlayer) {
                 final start = (item.segment.first * 1000).round();
-                Future<void> seekTo() => player.seek(
+                Future<void> seekToEnd() => plPlayerController.seekTo(
                   Duration(milliseconds: (item.segment.second * 1000).round()),
+                  isSeek: false,
                 );
                 if (start <= 0) {
-                  seekTo();
-                  if (!player.state.playing) {
-                    await player.play();
+                  await seekToEnd();
+                  if (!plPlayerController.isCurrentPlayerPlaying) {
+                    await plPlayerController.play();
                   }
                   return;
                 }
                 final seek = max(0, start - 2000);
-                await player.seek(Duration(milliseconds: seek));
-                if (!player.state.playing) {
-                  await player.play();
+                await plPlayerController.seekTo(
+                  Duration(milliseconds: seek),
+                  isSeek: false,
+                );
+                if (!plPlayerController.isCurrentPlayerPlaying) {
+                  await plPlayerController.play();
                 }
                 if (start > seek) {
-                  final posSub = player.stream.position.listen(
+                  final posSub = plPlayerController.positionStream.listen(
                     null,
                     cancelOnError: true,
                   );
@@ -494,13 +497,13 @@ class _PostPanelState extends State<PostPanel>
                   final duration = Duration(milliseconds: start);
                   posSub.onData((pos) {
                     if (pos >= duration) {
-                      seekTo();
+                      seekToEnd();
                       timer.cancel();
                       posSub.cancel();
                     }
                   });
                 } else {
-                  seekTo();
+                  seekToEnd();
                 }
               }
             },

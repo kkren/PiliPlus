@@ -1,5 +1,5 @@
 import 'dart:async' show Timer;
-import 'dart:convert' show jsonDecode, utf8;
+import 'dart:convert' show jsonDecode, jsonEncode, utf8;
 import 'dart:io' show Platform, File;
 import 'dart:typed_data' show Uint8List;
 
@@ -455,45 +455,45 @@ class HeaderControlState extends State<HeaderControl>
                     title: const Text('重载视频', style: titleStyle),
                   ),
                 ],
-                PopupListTile<SuperResolutionType>(
-                  dense: true,
-                  leading: const Icon(
-                    Icons.stay_current_landscape_outlined,
-                    size: 20,
+                if (plPlayerController.supportsMpvFeatures)
+                  PopupListTile<SuperResolutionType>(
+                    dense: true,
+                    leading: const Icon(
+                      Icons.stay_current_landscape_outlined,
+                      size: 20,
+                    ),
+                    title: const Text('超分辨率'),
+                    value: () {
+                      final value =
+                          plPlayerController.superResolutionType.value;
+                      return (value, value.label);
+                    },
+                    itemBuilder: (_) => enumItemBuilder(
+                      SuperResolutionType.values,
+                    ),
+                    onSelected: (value, setState) {
+                      plPlayerController.setShader(value);
+                      setState();
+                    },
+                    descFontSize: 12,
+                    descPosType: .subtitle,
                   ),
-                  title: const Text('超分辨率'),
-                  value: () {
-                    final value = plPlayerController.superResolutionType.value;
-                    return (value, value.label);
-                  },
-                  itemBuilder: (_) => enumItemBuilder(
-                    SuperResolutionType.values,
-                  ),
-                  onSelected: (value, setState) {
-                    plPlayerController.setShader(value);
-                    setState();
-                  },
-                  descFontSize: 12,
-                  descPosType: .subtitle,
-                ),
-                if (PlatformUtils.isMobile)
-                  if (plPlayerController.videoPlayerController
-                      case final player?)
-                    Builder(
-                      builder: (context) => ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.volume_up, size: 20),
-                        title: const Text('播放器音量'),
-                        subtitle: Text(
-                          '当前: ${Pref.playerVolume.toStringAsFixed(0)}%',
-                        ),
-                        onTap: () => showPlayerVolumeDialog(
-                          context,
-                          () => (context as Element).markNeedsBuild(),
-                          onChanged: player.setVolume,
-                        ),
+                if (PlatformUtils.isMobile && plPlayerController.hasPlayer)
+                  Builder(
+                    builder: (context) => ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.volume_up, size: 20),
+                      title: const Text('播放器音量'),
+                      subtitle: Text(
+                        '当前: ${Pref.playerVolume.toStringAsFixed(0)}%',
+                      ),
+                      onTap: () => showPlayerVolumeDialog(
+                        context,
+                        () => (context as Element).markNeedsBuild(),
+                        onChanged: plPlayerController.setPlayerVolume,
                       ),
                     ),
+                  ),
                 if (!isFileSource)
                   ListTile(
                     dense: true,
@@ -668,15 +668,16 @@ class HeaderControlState extends State<HeaderControl>
                   leading: const Icon(CustomIcons.dm_settings, size: 20),
                   title: const Text('弹幕设置', style: titleStyle),
                 ),
-                ListTile(
-                  dense: true,
-                  onTap: () {
-                    Get.back();
-                    showSetSubtitle();
-                  },
-                  leading: const Icon(Icons.subtitles_outlined, size: 20),
-                  title: const Text('字幕设置', style: titleStyle),
-                ),
+                if (plPlayerController.supportsFlutterSubtitle)
+                  ListTile(
+                    dense: true,
+                    onTap: () {
+                      Get.back();
+                      showSetSubtitle();
+                    },
+                    leading: const Icon(Icons.subtitles_outlined, size: 20),
+                    title: const Text('字幕设置', style: titleStyle),
+                  ),
                 ListTile(
                   dense: true,
                   onTap: () async {
@@ -684,7 +685,9 @@ class HeaderControlState extends State<HeaderControl>
                     try {
                       final result = await FilePicker.pickFile(
                         type: .custom,
-                        allowedExtensions: const ['json', 'vtt', 'srt', 'ass'],
+                        allowedExtensions: plPlayerController.isMedia3Backend
+                            ? const ['json', 'vtt']
+                            : const ['json', 'vtt', 'srt', 'ass'],
                       );
                       if (result != null) {
                         final file = result.xFile;
@@ -750,6 +753,16 @@ class HeaderControlState extends State<HeaderControl>
                     title: const Text('播放信息', style: titleStyle),
                     leading: const Icon(Icons.info_outline, size: 20),
                     onTap: () => showPlayerInfo(context, player: player),
+                  )
+                else if (plPlayerController.isMedia3Backend)
+                  ListTile(
+                    dense: true,
+                    title: const Text('播放信息', style: titleStyle),
+                    leading: const Icon(Icons.info_outline, size: 20),
+                    onTap: () => showMedia3PlayerInfo(
+                      context,
+                      plPlayerController: plPlayerController,
+                    ),
                   ),
                 ListTile(
                   dense: true,
@@ -770,6 +783,240 @@ class HeaderControlState extends State<HeaderControl>
         );
       },
     );
+  }
+
+  static void showMedia3PlayerInfo(
+    BuildContext context, {
+    required PlPlayerController plPlayerController,
+  }) {
+    final debugInfo = plPlayerController.media3DebugInfo;
+    final videoFormat = _debugMap(debugInfo['videoFormat']);
+    final audioFormat = _debugMap(debugInfo['audioFormat']);
+    final rate = debugInfo['rate'] ?? plPlayerController.currentPlayerRate;
+    final volume = debugInfo['volume'] ?? plPlayerController.volume.value * 100;
+
+    Widget infoTile(String title, Object? value) {
+      final text = _debugValueText(value);
+      return ListTile(
+        dense: true,
+        title: Text(title),
+        subtitle: Text(text),
+        onTap: () => Utils.copyText(
+          '$title\n${value is String ? value : _debugCopyText(value)}',
+        ),
+      );
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        final colorScheme = ColorScheme.of(context);
+        return AlertDialog(
+          title: const Text('播放信息'),
+          contentPadding: const EdgeInsets.only(top: 16),
+          content: Material(
+            type: MaterialType.transparency,
+            child: ListTileTheme(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    infoTile(
+                      'Resolution',
+                      _media3Resolution(videoFormat, plPlayerController),
+                    ),
+                    infoTile(
+                      'VideoParams',
+                      _media3VideoParamsText(videoFormat),
+                    ),
+                    infoTile(
+                      'AudioParams',
+                      _media3AudioParamsText(audioFormat),
+                    ),
+                    infoTile('Media', debugInfo['media']),
+                    infoTile('AudioTrack', audioFormat),
+                    infoTile('VideoTrack', videoFormat),
+                    infoTile('rate', rate),
+                    infoTile('Volume', volume),
+                    infoTile('hwdec', debugInfo['videoDecoder'] ?? 'unknown'),
+                    const Divider(height: 1),
+                    infoTile('VideoDecoder', debugInfo['videoDecoder']),
+                    infoTile('AudioDecoder', debugInfo['audioDecoder']),
+                    infoTile(
+                      'HDR',
+                      {
+                        'enabled': debugInfo['hdrModeEnabled'],
+                        'videoHdr': _debugMap(
+                          videoFormat?['colorInfo'],
+                        )?['hdr'],
+                        'colorInfo': videoFormat?['colorInfo'],
+                        'displayHdrTypes': debugInfo['displayHdrTypes'],
+                        'displayHdrSdrRatio': debugInfo['displayHdrSdrRatio'],
+                        'surfaceHeadroom':
+                            debugInfo['desiredSurfaceHdrHeadroom'],
+                        'windowHeadroom': debugInfo['desiredWindowHdrHeadroom'],
+                        'videoSurface': debugInfo['videoSurface'],
+                      },
+                    ),
+                    infoTile(
+                      'DroppedVideoFrames',
+                      debugInfo['droppedVideoFrames'],
+                    ),
+                    infoTile(
+                      'LastDroppedVideoFrames',
+                      debugInfo['lastDroppedVideoFrames'],
+                    ),
+                    infoTile(
+                      'LastDroppedElapsedMs',
+                      debugInfo['lastDroppedVideoFrameElapsedMs'],
+                    ),
+                    infoTile(
+                      'BandwidthEstimate',
+                      _formatBitsPerSecond(
+                        debugInfo['bandwidthEstimateBitsPerSecond'],
+                      ),
+                    ),
+                    infoTile(
+                      'LastBandwidthSample',
+                      {
+                        'bytesLoaded': debugInfo['lastBandwidthBytesLoaded'],
+                        'loadTimeMs': debugInfo['lastBandwidthLoadTimeMs'],
+                      },
+                    ),
+                    infoTile(
+                      'VideoDecoderCounters',
+                      debugInfo['videoDecoderCounters'],
+                    ),
+                    infoTile(
+                      'AudioDecoderCounters',
+                      debugInfo['audioDecoderCounters'],
+                    ),
+                    infoTile('VideoFormat', debugInfo['videoFormat']),
+                    infoTile('AudioFormat', debugInfo['audioFormat']),
+                    infoTile('Raw', debugInfo),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: Get.back,
+              child: Text(
+                '确定',
+                style: TextStyle(color: colorScheme.outline),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  static Map<String, Object?>? _debugMap(Object? value) {
+    if (value is! Map) return null;
+    return {
+      for (final entry in value.entries) entry.key.toString(): entry.value,
+    };
+  }
+
+  static String _media3Resolution(
+    Map<String, Object?>? videoFormat,
+    PlPlayerController controller,
+  ) {
+    final width = videoFormat?['width'] ?? controller.currentVideoWidth;
+    final height = videoFormat?['height'] ?? controller.currentVideoHeight;
+    return '${_debugValueText(width)}x${_debugValueText(height)}';
+  }
+
+  static String _media3VideoParamsText(Map<String, Object?>? format) {
+    if (format == null) return 'unknown';
+    final colorInfo = _debugMap(format['colorInfo']);
+    return [
+      _nonEmpty(format['sampleMimeType']),
+      _nonEmpty(format['codecs']),
+      if (format['width'] != null && format['height'] != null)
+        '${format['width']}x${format['height']}',
+      if (format['frameRate'] != null) '${format['frameRate']} fps',
+      _formatBitsPerSecondOrNull(format['bitrate']),
+      if (colorInfo != null)
+        [
+          _nonEmpty(colorInfo['colorSpaceName']),
+          _nonEmpty(colorInfo['colorRangeName']),
+          _nonEmpty(colorInfo['colorTransferName']),
+          if (colorInfo['hdr'] == true) 'HDR',
+          if (colorInfo['lumaBitdepth'] != null)
+            '${colorInfo['lumaBitdepth']}bit',
+        ].whereType<String>().where((item) => item.isNotEmpty).join(' / '),
+    ].whereType<String>().where((item) => item.isNotEmpty).join('\n');
+  }
+
+  static String _media3AudioParamsText(Map<String, Object?>? format) {
+    if (format == null) return 'unknown';
+    return [
+      _nonEmpty(format['sampleMimeType']),
+      _nonEmpty(format['codecs']),
+      if (format['channelCount'] != null) '${format['channelCount']} ch',
+      if (format['sampleRate'] != null) '${format['sampleRate']} Hz',
+      _formatBitsPerSecondOrNull(format['bitrate']),
+      _nonEmpty(format['language']),
+    ].whereType<String>().where((item) => item.isNotEmpty).join('\n');
+  }
+
+  static String? _nonEmpty(Object? value) {
+    final text = value?.toString();
+    return text == null || text.isEmpty ? null : text;
+  }
+
+  static String? _formatBitsPerSecondOrNull(Object? value) {
+    final text = _formatBitsPerSecond(value);
+    return text == 'unknown' ? null : text;
+  }
+
+  static String _debugValueText(Object? value, [int indent = 0]) {
+    if (value == null) return 'null';
+    if (value is Map) {
+      if (value.isEmpty) return '{}';
+      final childIndent = '  ' * (indent + 1);
+      return value.entries
+          .map((entry) {
+            final entryValue = entry.value;
+            if (entryValue is Map || entryValue is List) {
+              return '$childIndent${entry.key}:\n${_debugValueText(entryValue, indent + 1)}';
+            }
+            return '$childIndent${entry.key}: ${_debugValueText(entryValue)}';
+          })
+          .join('\n');
+    }
+    if (value is List) {
+      if (value.isEmpty) return '[]';
+      final childIndent = '  ' * (indent + 1);
+      return value
+          .map((entry) => '$childIndent- ${_debugValueText(entry, indent + 1)}')
+          .join('\n');
+    }
+    return value.toString();
+  }
+
+  static String _formatBitsPerSecond(Object? value) {
+    final speed = value is num ? value.toDouble() : null;
+    if (speed == null || speed <= 0) return 'unknown';
+    const units = ['bps', 'Kbps', 'Mbps', 'Gbps'];
+    var unitIndex = 0;
+    var scaled = speed;
+    while (scaled >= 1000 && unitIndex < units.length - 1) {
+      scaled /= 1000;
+      unitIndex++;
+    }
+    return '${scaled.toStringAsFixed(unitIndex == 0 ? 0 : 2)} ${units[unitIndex]}';
+  }
+
+  static String _debugCopyText(Object? value) {
+    try {
+      return jsonEncode(value);
+    } catch (_) {
+      return _debugValueText(value);
+    }
   }
 
   static void showPlayerInfo(
@@ -835,7 +1082,7 @@ class HeaderControlState extends State<HeaderControl>
                       title: const Text("VideoTrack"),
                       subtitle: Text(state.track.video.toString()),
                       onTap: () =>
-                          Utils.copyText('VideoTrack\n${state.track.audio}'),
+                          Utils.copyText('VideoTrack\n${state.track.video}'),
                     ),
                     ListTile(
                       dense: true,

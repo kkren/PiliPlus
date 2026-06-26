@@ -10,6 +10,7 @@ import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/models/bottom_progress_behavior.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
+import 'package:PiliPlus/plugin/pl_player/models/player_engine.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
@@ -21,6 +22,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+bool get _isMedia3Player => Pref.playerEngine == PlayerEngine.media3;
 
 List<SettingsModel> get playSettings => [
   const SwitchModel(
@@ -64,12 +67,13 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.showFsLockBtn,
     defaultVal: true,
   ),
-  const SwitchModel(
-    title: '全屏显示截图按钮',
-    leading: Icon(Icons.photo_camera_outlined),
-    setKey: SettingBoxKey.showFsScreenshotBtn,
-    defaultVal: true,
-  ),
+  if (!_isMedia3Player)
+    const SwitchModel(
+      title: '全屏显示截图按钮',
+      leading: Icon(Icons.photo_camera_outlined),
+      setKey: SettingBoxKey.showFsScreenshotBtn,
+      defaultVal: true,
+    ),
   SwitchModel(
     title: '全屏显示电池电量',
     leading: const Icon(Icons.battery_3_bar),

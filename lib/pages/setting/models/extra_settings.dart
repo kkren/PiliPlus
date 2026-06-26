@@ -27,6 +27,7 @@ import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/slider_dialog.dart';
 import 'package:PiliPlus/pages/video/reply/widgets/reply_item_grpc.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
+import 'package:PiliPlus/plugin/pl_player/models/player_engine.dart';
 import 'package:PiliPlus/services/download/download_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/cache_manager.dart';
@@ -50,6 +51,8 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
+
+bool get _isMedia3Player => Pref.playerEngine == PlayerEngine.media3;
 
 List<SettingsModel> get extraSettings => [
   if (PlatformUtils.isDesktop) ...[
@@ -274,7 +277,7 @@ List<SettingsModel> get extraSettings => [
     defaultVal: false,
     needReboot: true,
   ),
-  if (kDebugMode || Platform.isAndroid)
+  if (!_isMedia3Player && (kDebugMode || Platform.isAndroid))
     NormalModel(
       title: '音量均衡',
       leading: const Icon(Icons.multitrack_audio),
@@ -293,13 +296,14 @@ List<SettingsModel> get extraSettings => [
       },
       onTap: audioNormalization,
     ),
-  NormalModel(
-    title: '超分辨率',
-    leading: const Icon(Icons.stay_current_landscape_outlined),
-    getSubtitle: () =>
-        '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 auto-copy',
-    onTap: _showSuperResolutionDialog,
-  ),
+  if (!_isMedia3Player)
+    NormalModel(
+      title: '超分辨率',
+      leading: const Icon(Icons.stay_current_landscape_outlined),
+      getSubtitle: () =>
+          '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 auto-copy',
+      onTap: _showSuperResolutionDialog,
+    ),
   const SwitchModel(
     title: '提前初始化播放器',
     subtitle: '相对减少手动播放加载时间',
@@ -425,12 +429,13 @@ List<SettingsModel> get extraSettings => [
     setKey: SettingBoxKey.showDynActionBar,
     defaultVal: true,
   ),
-  const SwitchModel(
-    title: '启用拖拽字幕调整底部边距',
-    leading: Icon(MdiIcons.dragVariant),
-    setKey: SettingBoxKey.enableDragSubtitle,
-    defaultVal: false,
-  ),
+  if (!_isMedia3Player)
+    const SwitchModel(
+      title: '启用拖拽字幕调整底部边距',
+      leading: Icon(MdiIcons.dragVariant),
+      setKey: SettingBoxKey.enableDragSubtitle,
+      defaultVal: false,
+    ),
   const SwitchModel(
     title: '展示追番时间表',
     leading: Icon(MdiIcons.chartTimelineVariantShimmer),

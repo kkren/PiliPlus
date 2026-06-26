@@ -71,7 +71,6 @@ import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
 import 'package:get/get.dart';
 import 'package:hive_ce/hive.dart';
-import 'package:media_kit/media_kit.dart' hide Subtitle;
 
 class VideoDetailController extends GetxController
     with GetTickerProviderStateMixin, BlockMixin {
@@ -556,7 +555,14 @@ class VideoDetailController extends GetxController
   @override
   BlockConfigMixin get blockConfig => plPlayerController;
   @override
-  Player? get player => plPlayerController.videoPlayerController;
+  bool get hasPlayer => plPlayerController.hasPlayer;
+  @override
+  bool get playerIsPlaying => plPlayerController.isCurrentPlayerPlaying;
+  @override
+  Stream<Duration>? get playerPositionStream =>
+      plPlayerController.positionStream;
+  @override
+  Stream<bool>? get playerPlayingStream => plPlayerController.playingStream;
   @override
   bool get isFullScreen => plPlayerController.isFullScreen.value;
   @override
@@ -1057,9 +1063,7 @@ class VideoDetailController extends GetxController
   // 设定字幕轨道
   Future<void> setSubtitle(int index) async {
     if (index <= 0) {
-      await plPlayerController.videoPlayerController?.setSubtitleTrack(
-        SubtitleTrack.no(),
-      );
+      await plPlayerController.clearSubtitleTrack();
       vttSubtitlesIndex.value = index;
       return;
     }
@@ -1067,12 +1071,11 @@ class VideoDetailController extends GetxController
     Future<void> setSub(({bool isData, String id}) subtitle) async {
       final sub = subtitles[index - 1];
 
-      String subUri = subtitle.id;
-      if (subtitle.isData) {
-        subUri = 'memory://$subUri';
-      }
-      await plPlayerController.videoPlayerController?.setSubtitleTrack(
-        SubtitleTrack(subUri, sub.lanDoc, sub.lan, uri: true),
+      await plPlayerController.setSubtitleSource(
+        source: subtitle.id,
+        isData: subtitle.isData,
+        label: sub.lanDoc ?? '',
+        language: sub.lan,
       );
       vttSubtitlesIndex.value = index;
     }

@@ -68,8 +68,16 @@ class AudioController extends GetxController
   final audioItem = Rxn<DetailItem>();
 
   bool _hasInit = false;
-  @override
   Player? player;
+  @override
+  bool get hasPlayer => player != null;
+  @override
+  bool get playerIsPlaying => player?.state.playing ?? false;
+  @override
+  Stream<Duration>? get playerPositionStream => player?.stream.position;
+  @override
+  Stream<bool>? get playerPlayingStream => player?.stream.playing;
+
   late int cacheAudioQa;
 
   late bool isDragging = false;
@@ -123,7 +131,7 @@ class AudioController extends GetxController
     final volume = desktopVolume.value;
     PlPlayerController.instance
       ?..volume.value = volume
-      ..videoPlayerController?.setVolume(volume * 100);
+      ..setPlayerVolume(volume * 100);
     GStorage.setting.put(SettingBoxKey.desktopVolume, volume.toPrecision(3));
   }
 

@@ -16,7 +16,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
-import 'package:media_kit/media_kit.dart';
 
 mixin BlockConfigMixin {
   late final pgcSkipType = Pref.pgcSkipType;
@@ -47,7 +46,10 @@ mixin BlockMixin on GetxController {
   late final List<Object> listData = [];
 
   RxString? get videoLabel => null;
-  Player? get player;
+  bool get hasPlayer;
+  bool get playerIsPlaying;
+  Stream<Duration>? get playerPositionStream;
+  Stream<bool>? get playerPlayingStream;
   bool get autoPlay;
   int? get timeLength;
   bool get preInitPlayer;
@@ -79,7 +81,7 @@ mixin BlockMixin on GetxController {
     if (isClosed) return;
     if (_segmentList.isNotEmpty) {
       _blockListener?.cancel();
-      _blockListener = player?.stream.position.listen((position) {
+      _blockListener = playerPositionStream?.listen((position) {
         int currentPos = position.inSeconds;
         if (currentPos != _lastBlockPos) {
           _lastBlockPos = currentPos;
@@ -138,7 +140,7 @@ mixin BlockMixin on GetxController {
                         '${videoLabel!.value.isNotEmpty ? '/' : ''}${segmentModel.segmentType.title}';
                   }
 
-                  if (_blockListener == null && autoPlay && player != null) {
+                  if (_blockListener == null && autoPlay && hasPlayer) {
                     final currPos = currPosInMilliseconds;
 
                     if (segmentModel.segment.contains(currPos)) {
@@ -148,18 +150,14 @@ mixin BlockMixin on GetxController {
                         case SkipType.alwaysSkip:
                         case SkipType.skipOnce:
                           segmentModel.hasSkipped = true;
-                          if (player!.state.playing) {
+                          if (playerIsPlaying) {
                             future = onSkip(
                               segmentModel,
                             );
                           } else {
-                            player!.stream.playing.firstWhere((e) {
-                              if (e) {
-                                future = onSkip(segmentModel);
-                                return true;
-                              }
-                              return false;
-                            }, orElse: () => false);
+                            future = playerPlayingStream
+                                ?.firstWhere((playing) => playing)
+                                .then((_) => onSkip(segmentModel));
                           }
                           break;
                         case SkipType.skipManually:

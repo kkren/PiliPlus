@@ -5,9 +5,21 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager.LayoutParams
+import io.flutter.embedding.engine.FlutterEngine
 import com.ryanheise.audioservice.AudioServiceActivity
 
 class MainActivity : AudioServiceActivity() {
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        flutterEngine
+            .platformViewsController
+            .registry
+            .registerViewFactory(
+                "piliplus/media3_player_view",
+                Media3PlayerViewFactory(this, flutterEngine.dartExecutor.binaryMessenger)
+            )
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         if (AndroidHelper.isFoldable) {

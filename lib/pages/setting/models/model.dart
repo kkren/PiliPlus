@@ -19,6 +19,7 @@ sealed class SettingsModel {
 
   String? get title;
   Widget get widget;
+  Widget buildWidget([VoidCallback? refresh]) => widget;
   String get effectiveTitle;
   String? get effectiveSubtitle;
 
@@ -151,6 +152,21 @@ class NormalModel extends SettingsModel {
     leading: leading,
     getTrailing: getTrailing,
     onTap: onTap,
+    contentPadding: contentPadding,
+    titleStyle: titleStyle,
+  );
+
+  @override
+  Widget buildWidget([VoidCallback? refresh]) => NormalItem(
+    title: title,
+    getTitle: getTitle,
+    subtitle: subtitle,
+    getSubtitle: getSubtitle,
+    leading: leading,
+    getTrailing: getTrailing,
+    onTap: refresh == null || onTap == null
+        ? onTap
+        : (context, _) => onTap!(context, refresh),
     contentPadding: contentPadding,
     titleStyle: titleStyle,
   );

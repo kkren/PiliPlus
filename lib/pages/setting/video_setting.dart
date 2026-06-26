@@ -11,12 +11,11 @@ class VideoSetting extends StatefulWidget {
 }
 
 class _VideoSettingState extends State<VideoSetting> {
-  final settings = videoSettings;
-
   @override
   Widget build(BuildContext context) {
     final showAppBar = widget.showAppBar;
     final padding = MediaQuery.viewPaddingOf(context);
+    final settings = videoSettings;
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: showAppBar ? AppBar(title: const Text('音视频设置')) : null,
@@ -27,8 +26,14 @@ class _VideoSettingState extends State<VideoSetting> {
           bottom: padding.bottom + 100,
         ),
         itemCount: settings.length,
-        itemBuilder: (context, index) => settings[index].widget,
+        itemBuilder: (context, index) => settings[index].buildWidget(refresh),
       ),
     );
+  }
+
+  void refresh() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 }

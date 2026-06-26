@@ -347,10 +347,8 @@ class _ReplyPageState extends CommonRichTextPubPageState<ReplyPage> {
                     final plPlayerController = Get.find<VideoDetailController>(
                       tag: heroTag,
                     );
-                    final res = await plPlayerController
-                        .plPlayerController
-                        .videoPlayerController
-                        ?.screenshot();
+                    final res = await plPlayerController.plPlayerController
+                        .captureScreenshot();
                     if (res != null) {
                       final png = await res.toByteData(format: .png);
                       if (png != null) {

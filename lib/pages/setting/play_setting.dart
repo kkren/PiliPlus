@@ -11,12 +11,11 @@ class PlaySetting extends StatefulWidget {
 }
 
 class _PlaySettingState extends State<PlaySetting> {
-  final settings = playSettings;
-
   @override
   Widget build(BuildContext context) {
     final showAppBar = widget.showAppBar;
     final padding = MediaQuery.viewPaddingOf(context);
+    final settings = playSettings;
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: showAppBar ? AppBar(title: const Text('播放器设置')) : null,
@@ -27,8 +26,14 @@ class _PlaySettingState extends State<PlaySetting> {
           bottom: padding.bottom + 100,
         ),
         itemCount: settings.length,
-        itemBuilder: (context, index) => settings[index].widget,
+        itemBuilder: (context, index) => settings[index].buildWidget(refresh),
       ),
     );
+  }
+
+  void refresh() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 }

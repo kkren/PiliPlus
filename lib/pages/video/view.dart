@@ -285,6 +285,13 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     plPlayerController!.play();
   }
 
+  void _hideMedia3Surface() {
+    final controller = videoDetailController.plPlayerController;
+    if (controller.isMedia3Backend && !controller.hasStackedVideoPages) {
+      unawaited(controller.hideVideoSurface());
+    }
+  }
+
   /// 未开启自动播放时触发播放
   Future<void>? handlePlay() {
     if (!videoDetailController.isFileSource) {
@@ -322,6 +329,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
 
   @override
   void dispose() {
+    _hideMedia3Surface();
+
     plPlayerController
       ?..removeStatusLister(playerListener)
       ..removePositionListener(positionListener);
@@ -431,6 +440,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       ?..addStatusLister(playerListener)
       ..addPositionListener(positionListener);
     if (videoDetailController.autoPlay) {
+      plPlayerController?.rebuildVideoSurface();
       videoDetailController.playerInit(
         autoplay: videoDetailController.playerStatus?.isPlaying ?? false,
       );
@@ -439,6 +449,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         videoDetailController.videoUrl != null) {
       videoDetailController.playerInit();
     }
+  }
+
+  @override
+  void didPop() {
+    _hideMedia3Surface();
+    super.didPop();
   }
 
   @override
@@ -724,19 +740,15 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                                         handlePlay();
                                       } else {
                                         if (plPlayerController!
-                                            .videoPlayerController!
-                                            .state
-                                            .completed) {
-                                          await plPlayerController!
-                                              .videoPlayerController!
-                                              .seek(Duration.zero);
-                                          plPlayerController!
-                                              .videoPlayerController!
-                                              .play();
+                                            .isCurrentPlayerCompleted) {
+                                          await plPlayerController!.seekTo(
+                                            Duration.zero,
+                                            isSeek: false,
+                                          );
+                                          plPlayerController!.play();
                                         } else {
                                           plPlayerController!
-                                              .videoPlayerController!
-                                              .playOrPause();
+                                              .onDoubleTapCenter();
                                         }
                                       }
                                     },
@@ -1265,7 +1277,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       () =>
           !videoDetailController.videoState.value ||
               !videoDetailController.autoPlay ||
-              plPlayerController?.videoController == null
+              plPlayerController?.hasPlayer != true
           ? const SizedBox.shrink()
           : PLVideoPlayer(
               maxWidth: width,

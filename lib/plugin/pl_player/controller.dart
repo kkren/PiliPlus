@@ -1,4 +1,4 @@
-import 'dart:async' show StreamSubscription, Timer;
+import 'dart:async' show StreamController, StreamSubscription, Timer, unawaited;
 import 'dart:convert' show ascii;
 import 'dart:io' show Platform;
 import 'dart:math' show max, min;
@@ -26,6 +26,8 @@ import 'package:PiliPlus/plugin/pl_player/models/double_tap_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/duration.dart';
 import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/heart_beat_type.dart';
+import 'package:PiliPlus/plugin/pl_player/media3/media3_player_controller.dart';
+import 'package:PiliPlus/plugin/pl_player/models/player_engine.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
@@ -71,6 +73,7 @@ typedef PlayCallback = Future<void>? Function();
 class PlPlayerController with BlockConfigMixin {
   Player? _videoPlayerController;
   VideoController? _videoController;
+  Media3PlayerController? _media3PlayerController;
 
   // 添加一个私有静态变量来保存实例
   static PlPlayerController? _instance;
@@ -169,6 +172,8 @@ class PlPlayerController with BlockConfigMixin {
 
   Timer? _timer;
   StreamSubscription<Duration>? _subForSeek;
+  final StreamController<Duration> _positionStreamController =
+      StreamController<Duration>.broadcast();
 
   Box setting = GStorage.setting;
 
@@ -187,6 +192,62 @@ class PlPlayerController with BlockConfigMixin {
 
   /// [videoController] instance of Player
   VideoController? get videoController => _videoController;
+
+  Media3PlayerController? get media3PlayerController => _media3PlayerController;
+
+  late final PlayerEngine playerEngine = Pref.playerEngine;
+  bool get isMedia3Backend => _media3PlayerController != null;
+  bool get hasStackedVideoPages => _playerCount > 1;
+  bool get supportsMpvFeatures => !isMedia3Backend;
+  bool get supportsFlutterSubtitle => _videoController != null;
+  bool get supportsScreenshot => !isMedia3Backend;
+  bool get hasPlayer =>
+      _videoPlayerController != null || _media3PlayerController != null;
+  final RxInt videoViewVersion = 0.obs;
+  Stream<Duration> get positionStream => _positionStreamController.stream;
+  Stream<bool> get playingStream =>
+      playerStatus.stream.map((status) => status.isPlaying);
+  Map<String, Object?> get media3DebugInfo =>
+      _media3PlayerController?.state.debugInfo ?? const <String, Object?>{};
+
+  bool get isCurrentPlayerPlaying =>
+      _media3PlayerController?.state.playing ??
+      _videoPlayerController?.state.playing ??
+      false;
+
+  bool get isCurrentPlayerCompleted =>
+      _media3PlayerController?.state.completed ??
+      _videoPlayerController?.state.completed ??
+      false;
+
+  double get currentPlayerRate =>
+      _media3PlayerController?.state.rate ??
+      _videoPlayerController?.state.rate ??
+      1.0;
+
+  Duration get currentPlayerDuration =>
+      _media3PlayerController?.state.duration ??
+      _videoPlayerController?.state.duration ??
+      duration.value;
+
+  int get currentVideoWidth {
+    final value =
+        _media3PlayerController?.state.width ??
+        _videoPlayerController?.state.width;
+    return value == null || value == 0 ? width ?? 16 : value;
+  }
+
+  int get currentVideoHeight {
+    final value =
+        _media3PlayerController?.state.height ??
+        _videoPlayerController?.state.height;
+    return value == null || value == 0 ? height ?? 9 : value;
+  }
+
+  double get currentAspectRatio {
+    final h = currentVideoHeight;
+    return h == 0 ? 16 / 9 : currentVideoWidth / h;
+  }
 
   bool isMuted = false;
 
@@ -247,15 +308,8 @@ class PlPlayerController with BlockConfigMixin {
     }
 
     final Size size;
-    final state = videoPlayerController!.state;
-    int width = state.width;
-    int height = state.height;
-    if (width == 0) {
-      width = this.width ?? 16;
-    }
-    if (height == 0) {
-      height = this.height ?? 9;
-    }
+    final width = currentVideoWidth;
+    final height = currentVideoHeight;
     if (height > width) {
       size = Size(280.0, 280.0 * height / width);
     } else {
@@ -293,12 +347,11 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void enterPip({bool autoEnter = false}) {
-    if (videoPlayerController != null) {
-      final state = videoPlayerController!.state;
+    if (hasPlayer) {
       PageUtils.enterPip(
         autoEnter: autoEnter,
-        width: state.width == 0 ? width : state.width,
-        height: state.height == 0 ? height : state.height,
+        width: currentVideoWidth,
+        height: currentVideoHeight,
         isLive: isLive,
         isPlaying: playerStatus.isPlaying,
       );
@@ -669,8 +722,7 @@ class PlPlayerController with BlockConfigMixin {
         _clearPreview();
       }
       cancelLongPressTimer();
-      if (_videoPlayerController != null &&
-          _videoPlayerController!.state.playing) {
+      if (isCurrentPlayerPlaying) {
         await pause(notify: false);
       }
 
@@ -682,14 +734,25 @@ class PlPlayerController with BlockConfigMixin {
 
       if (_playerCount == 0) {
         _removeListeners();
+        final hadMediaKit =
+            _videoPlayerController != null || _videoController != null;
         _videoPlayerController?.dispose();
         _videoPlayerController = null;
         _videoController = null;
+        if (hadMediaKit) {
+          videoViewVersion.value++;
+        }
+        final media3 = _media3PlayerController;
+        _media3PlayerController = null;
+        if (media3 != null) {
+          videoViewVersion.value++;
+          await media3.dispose();
+        }
         return;
       }
 
       // 获取视频时长 00:00
-      this.duration.value = duration ?? _videoPlayerController!.state.duration;
+      this.duration.value = duration ?? currentPlayerDuration;
       position = buffered.value = sliderPosition = seekTo ?? Duration.zero;
       updatePositionSecond();
       updateSliderPositionSecond();
@@ -731,6 +794,12 @@ class PlPlayerController with BlockConfigMixin {
   late final Rx<SuperResolutionType> superResolutionType =
       (isAnim ? Pref.superResolutionType : SuperResolutionType.disable).obs;
   Future<void> setShader([SuperResolutionType? type, NativePlayer? pp]) async {
+    if (isMedia3Backend) {
+      if (type != null) {
+        SmartDialog.showToast('Media3 暂不支持超分辨率');
+      }
+      return;
+    }
     if (type == null) {
       type = superResolutionType.value;
     } else {
@@ -808,6 +877,14 @@ class PlPlayerController with BlockConfigMixin {
     return player;
   }
 
+  Media3PlayerController _initMedia3Player() {
+    assert(_media3PlayerController == null);
+    assert(Platform.isAndroid);
+    final player = Media3PlayerController.create();
+    _startMedia3Listeners(player);
+    return player;
+  }
+
   Map<String, String>? _buffer;
   Map<String, String> get buffer =>
       _buffer ??= Pref.initBuffer(_playbackSpeed.value);
@@ -827,6 +904,10 @@ class PlPlayerController with BlockConfigMixin {
     // 初始化时清空弹幕，防止上次重叠
     danmakuController?.clear();
 
+    if (playerEngine == PlayerEngine.media3 && Platform.isAndroid) {
+      return _createMedia3Controller(dataSource, seekTo);
+    }
+
     var player = _videoPlayerController;
 
     if (player == null) {
@@ -839,6 +920,7 @@ class PlPlayerController with BlockConfigMixin {
         return;
       }
       _videoPlayerController = player;
+      videoViewVersion.value++;
       if (isAnim && superResolutionType.value != .disable) {
         await setShader();
       }
@@ -901,9 +983,42 @@ class PlPlayerController with BlockConfigMixin {
     );
   }
 
+  Future<void> _createMedia3Controller(
+    DataSource dataSource,
+    Duration? seekTo,
+  ) async {
+    var player = _media3PlayerController;
+    if (player == null) {
+      player = _initMedia3Player();
+      if (_playerCount == 0) {
+        _removeListeners();
+        await player.dispose();
+        return;
+      }
+      _media3PlayerController = player;
+      videoViewVersion.value++;
+    }
+
+    final audio = dataSource.audioSource;
+    await player.open(
+      videoSource: onlyPlayAudio.value && audio?.isNotEmpty == true
+          ? audio!
+          : dataSource.videoSource,
+      audioSource: onlyPlayAudio.value ? null : audio,
+      start: seekTo,
+      play: false,
+      isLive: isLive,
+      userAgent: BrowserUa.pc,
+      referer: HttpString.baseUrl,
+    );
+  }
+
   Future<void>? refreshPlayer() {
     if (dataSource is FileSource) {
       return null;
+    }
+    if (_media3PlayerController case final ctr?) {
+      return ctr.refresh(position, play: true);
     }
     if (_videoPlayerController case final ctr? when (ctr.current.isNotEmpty)) {
       return ctr.open(ctr.current.last.copyWith(start: position), play: true);
@@ -918,7 +1033,7 @@ class PlPlayerController with BlockConfigMixin {
     if (isLive) {
       await setPlaybackSpeed(1.0);
     } else {
-      if (_videoPlayerController?.state.rate != _playbackSpeed.value) {
+      if (currentPlayerRate != _playbackSpeed.value) {
         await setPlaybackSpeed(_playbackSpeed.value);
       }
     }
@@ -943,82 +1058,135 @@ class PlPlayerController with BlockConfigMixin {
   final Set<ValueChanged<Duration>> _positionListeners = {};
   final Set<ValueChanged<PlayerStatus>> _statusListeners = {};
 
+  void _handlePlayingChanged(bool event) {
+    WakelockPlus.toggle(enable: event);
+    if (event) {
+      if (_isAutoEnterPip) {
+        if (_isCurrVideoPage) {
+          enterPip(autoEnter: true);
+        } else {
+          _disableAutoEnterPip();
+        }
+      }
+      playerStatus.value = PlayerStatus.playing;
+    } else {
+      _disableAutoEnterPip();
+      playerStatus.value = PlayerStatus.paused;
+    }
+    videoPlayerServiceHandler?.onStatusChange(
+      playerStatus.value,
+      isBuffering.value,
+      isLive,
+    );
+
+    for (final element in _statusListeners) {
+      element(event ? PlayerStatus.playing : PlayerStatus.paused);
+    }
+    if (position.inSeconds != 0) {
+      makeHeartBeat(positionSeconds.value, type: HeartBeatType.status);
+    }
+  }
+
+  void _handleCompletedChanged(bool event) {
+    if (event) {
+      playerStatus.value = PlayerStatus.completed;
+
+      for (final element in _statusListeners) {
+        element(PlayerStatus.completed);
+      }
+    }
+    makeHeartBeat(positionSeconds.value, type: HeartBeatType.completed);
+  }
+
+  void _handlePositionChanged(Duration event) {
+    position = event;
+    updatePositionSecond();
+    if (!isSliderMoving.value) {
+      sliderPosition = event;
+      updateSliderPositionSecond();
+    }
+
+    if (!_positionStreamController.isClosed) {
+      _positionStreamController.add(event);
+    }
+    for (final element in _positionListeners) {
+      element(event);
+    }
+    makeHeartBeat(event.inSeconds);
+  }
+
+  void _handleDurationChanged(Duration event) {
+    duration.value = event;
+  }
+
+  void _handleBufferChanged(Duration event) {
+    buffered.value = event;
+    updateBufferedSecond();
+  }
+
+  void _handleBufferingChanged(bool event) {
+    isBuffering.value = event;
+    videoPlayerServiceHandler?.onStatusChange(
+      playerStatus.value,
+      event,
+      isLive,
+    );
+  }
+
+  void _handlePlayerError(String event) {
+    if (dataSource is FileSource && event.startsWith("Failed to open file")) {
+      return;
+    }
+    if (isLive) {
+      if (event.startsWith('tcp: ffurl_read returned ') ||
+          event.startsWith("Failed to open https://") ||
+          event.startsWith("Can not open external file https://")) {
+        Future.delayed(const Duration(milliseconds: 3000), refreshPlayer);
+      }
+      return;
+    }
+    if (event.startsWith("Failed to open https://") ||
+        event.startsWith("Can not open external file https://") ||
+        event.startsWith('tcp: ffurl_read returned ')) {
+      EasyThrottle.throttle(
+        'controllerStream.error.listen',
+        const Duration(milliseconds: 10000),
+        () {
+          Future.delayed(const Duration(milliseconds: 3000), () {
+            if (isBuffering.value && buffered.value == Duration.zero) {
+              SmartDialog.showToast(
+                '视频链接打开失败，重试中',
+                displayTime: const Duration(milliseconds: 500),
+              );
+              refreshPlayer();
+            }
+          });
+        },
+      );
+    } else if (event.startsWith('Could not open codec')) {
+      SmartDialog.showToast('无法加载解码器, $event，可能会切换至软解');
+    } else if (!onlyPlayAudio.value) {
+      if (event.startsWith("error running") ||
+          event.startsWith("Failed to open .") ||
+          event.startsWith("Cannot open") ||
+          event.startsWith("Can not open")) {
+        return;
+      }
+      Utils.reportError(event);
+    }
+  }
+
   /// 播放事件监听
   void _startListeners(NativePlayer player) {
     assert(_subscriptions == null);
     final stream = player.stream;
     _subscriptions = [
-      stream.playing.listen((event) {
-        WakelockPlus.toggle(enable: event);
-        if (event) {
-          if (_isAutoEnterPip) {
-            if (_isCurrVideoPage) {
-              enterPip(autoEnter: true);
-            } else {
-              _disableAutoEnterPip();
-            }
-          }
-          playerStatus.value = PlayerStatus.playing;
-        } else {
-          _disableAutoEnterPip();
-          playerStatus.value = PlayerStatus.paused;
-        }
-        videoPlayerServiceHandler?.onStatusChange(
-          playerStatus.value,
-          isBuffering.value,
-          isLive,
-        );
-
-        /// 触发回调事件
-        for (final element in _statusListeners) {
-          element(event ? PlayerStatus.playing : PlayerStatus.paused);
-        }
-        if (videoPlayerController!.state.position.inSeconds != 0) {
-          makeHeartBeat(positionSeconds.value, type: HeartBeatType.status);
-        }
-      }),
-      stream.completed.listen((event) {
-        if (event) {
-          playerStatus.value = PlayerStatus.completed;
-
-          /// 触发回调事件
-          for (final element in _statusListeners) {
-            element(PlayerStatus.completed);
-          }
-        } else {
-          // playerStatus.value = PlayerStatus.playing;
-        }
-        makeHeartBeat(positionSeconds.value, type: HeartBeatType.completed);
-      }),
-      stream.position.listen((event) {
-        position = event;
-        updatePositionSecond();
-        if (!isSliderMoving.value) {
-          sliderPosition = event;
-          updateSliderPositionSecond();
-        }
-
-        /// 触发回调事件
-        for (final element in _positionListeners) {
-          element(event);
-        }
-        makeHeartBeat(event.inSeconds);
-      }),
-      stream.duration.listen((Duration event) {
-        duration.value = event;
-      }),
-      stream.buffer.listen((Duration event) {
-        buffered.value = event;
-        updateBufferedSecond();
-      }),
-      stream.buffering.listen((bool event) {
-        isBuffering.value = event;
-        videoPlayerServiceHandler?.onStatusChange(
-          playerStatus.value,
-          event,
-          isLive,
-        );
-      }),
+      stream.playing.listen(_handlePlayingChanged),
+      stream.completed.listen(_handleCompletedChanged),
+      stream.position.listen(_handlePositionChanged),
+      stream.duration.listen(_handleDurationChanged),
+      stream.buffer.listen(_handleBufferChanged),
+      stream.buffering.listen(_handleBufferingChanged),
       if (kDebugMode)
         stream.log.listen(((PlayerLog log) {
           if (log.level == 'error' || log.level == 'fatal') {
@@ -1027,64 +1195,30 @@ class PlPlayerController with BlockConfigMixin {
             debugPrint(log.toString());
           }
         })),
-      stream.error.listen((String event) {
-        if (dataSource is FileSource &&
-            event.startsWith("Failed to open file")) {
-          return;
-        }
-        if (isLive) {
-          if (event.startsWith('tcp: ffurl_read returned ') ||
-              event.startsWith("Failed to open https://") ||
-              event.startsWith("Can not open external file https://")) {
-            Future.delayed(const Duration(milliseconds: 3000), refreshPlayer);
-          }
-          return;
-        }
-        if (event.startsWith("Failed to open https://") ||
-            event.startsWith("Can not open external file https://") ||
-            //tcp: ffurl_read returned 0xdfb9b0bb
-            //tcp: ffurl_read returned 0xffffff99
-            event.startsWith('tcp: ffurl_read returned ')) {
-          EasyThrottle.throttle(
-            'controllerStream.error.listen',
-            const Duration(milliseconds: 10000),
-            () {
-              Future.delayed(const Duration(milliseconds: 3000), () {
-                // if (kDebugMode) {
-                //   debugPrint("isBuffering.value: ${isBuffering.value}");
-                // }
-                // if (kDebugMode) {
-                //   debugPrint("_buffered.value: ${_buffered.value}");
-                // }
-                if (isBuffering.value && buffered.value == Duration.zero) {
-                  SmartDialog.showToast(
-                    '视频链接打开失败，重试中',
-                    displayTime: const Duration(milliseconds: 500),
-                  );
-                  refreshPlayer();
-                }
-              });
-            },
-          );
-        } else if (event.startsWith('Could not open codec')) {
-          SmartDialog.showToast('无法加载解码器, $event，可能会切换至软解');
-        } else if (!onlyPlayAudio.value) {
-          if (event.startsWith("error running") ||
-              event.startsWith("Failed to open .") ||
-              event.startsWith("Cannot open") ||
-              event.startsWith("Can not open")) {
-            return;
-          }
-          Utils.reportError(event);
-          // SmartDialog.showToast('视频加载错误, $event');
-        }
-      }),
+      stream.error.listen(_handlePlayerError),
       // controllerStream.volume.listen((event) {
       //   if (!mute.value && _volumeBeforeMute != event) {
       //     _volumeBeforeMute = event / 100;
       //   }
       // }),
       // 媒体通知监听
+      if (videoPlayerServiceHandler != null)
+        positionSeconds.listen((int event) {
+          videoPlayerServiceHandler!.onPositionChange(Duration(seconds: event));
+        }),
+    ];
+  }
+
+  void _startMedia3Listeners(Media3PlayerController player) {
+    assert(_subscriptions == null);
+    _subscriptions = [
+      player.playingStream.listen(_handlePlayingChanged),
+      player.completedStream.listen(_handleCompletedChanged),
+      player.positionStream.listen(_handlePositionChanged),
+      player.durationStream.listen(_handleDurationChanged),
+      player.bufferedStream.listen(_handleBufferChanged),
+      player.bufferingStream.listen(_handleBufferingChanged),
+      player.errorStream.listen(_handlePlayerError),
       if (videoPlayerServiceHandler != null)
         positionSeconds.listen((int event) {
           videoPlayerServiceHandler!.onPositionChange(Duration(seconds: event));
@@ -1122,13 +1256,14 @@ class PlPlayerController with BlockConfigMixin {
     _heartDuration = position.inSeconds;
 
     Future<void> seek() async {
-      if (isSeek) {
+      if (isSeek && _videoPlayerController != null) {
         /// 拖动进度条调节时，不等待第一帧，防止抖动
         await _videoPlayerController?.stream.buffer.first;
       }
       danmakuController?.clear();
       try {
-        await _videoPlayerController?.seek(position);
+        await (_media3PlayerController?.seek(position) ??
+            _videoPlayerController?.seek(position));
       } catch (e) {
         if (kDebugMode) debugPrint('seek failed: $e');
       }
@@ -1150,11 +1285,12 @@ class PlPlayerController with BlockConfigMixin {
   Future<void> setPlaybackSpeed(double speed) async {
     lastPlaybackSpeed = playbackSpeed;
 
-    if (speed == _videoPlayerController?.state.rate) {
+    if (speed == currentPlayerRate) {
       return;
     }
 
-    await _videoPlayerController?.setRate(speed);
+    await (_media3PlayerController?.setRate(speed) ??
+        _videoPlayerController?.setRate(speed));
     _playbackSpeed.value = speed;
     if (danmakuController != null) {
       try {
@@ -1174,7 +1310,8 @@ class PlPlayerController with BlockConfigMixin {
   // 还原默认速度
   double playSpeedDefault = Pref.playSpeedDefault;
   Future<void> setDefaultSpeed() async {
-    await _videoPlayerController?.setRate(playSpeedDefault);
+    await (_media3PlayerController?.setRate(playSpeedDefault) ??
+        _videoPlayerController?.setRate(playSpeedDefault));
     _playbackSpeed.value = playSpeedDefault;
   }
 
@@ -1189,7 +1326,7 @@ class PlPlayerController with BlockConfigMixin {
       await seekTo(Duration.zero, isSeek: false);
     }
 
-    await _videoPlayerController?.play();
+    await (_media3PlayerController?.play() ?? _videoPlayerController?.play());
 
     audioSessionHandler?.setActive(true);
 
@@ -1199,7 +1336,7 @@ class PlPlayerController with BlockConfigMixin {
 
   /// 暂停播放
   Future<void> pause({bool notify = true, bool isInterrupt = false}) async {
-    await _videoPlayerController?.pause();
+    await (_media3PlayerController?.pause() ?? _videoPlayerController?.pause());
     playerStatus.value = PlayerStatus.paused;
 
     // 主动暂停时让出音频焦点
@@ -1263,7 +1400,7 @@ class PlPlayerController with BlockConfigMixin {
       this.volume.value = volume;
       try {
         if (PlatformUtils.isDesktop) {
-          await _videoPlayerController!.setVolume(volume * 100);
+          await setPlayerVolume(volume * 100);
         } else {
           FlutterVolumeController.updateShowSystemUI(false);
           await FlutterVolumeController.setVolume(volume);
@@ -1284,6 +1421,50 @@ class PlPlayerController with BlockConfigMixin {
         setting.put(SettingBoxKey.desktopVolume, volume.toPrecision(3));
       }
     });
+  }
+
+  Future<void> setPlayerVolume(double volume) async {
+    await (_media3PlayerController?.setVolume(volume) ??
+        _videoPlayerController?.setVolume(volume));
+  }
+
+  Future<void> hideVideoSurface() =>
+      _media3PlayerController?.hideView() ?? Future.value();
+
+  void rebuildVideoSurface() {
+    if (isMedia3Backend) {
+      videoViewVersion.value++;
+    }
+  }
+
+  Future<void> toggleMute() async {
+    isMuted = !isMuted;
+    await setPlayerVolume(isMuted ? 0 : volume.value * 100);
+    SmartDialog.showToast('${isMuted ? '' : '取消'}静音');
+  }
+
+  Widget buildVideoSurface({
+    required Color fill,
+    double? aspectRatio,
+  }) {
+    final media3 = _media3PlayerController;
+    if (media3 != null) {
+      return KeyedSubtree(
+        key: ValueKey('media3-${media3.id}-${videoViewVersion.value}'),
+        child: media3.buildView(
+          fill: fill,
+          aspectRatio: aspectRatio ?? currentAspectRatio,
+        ),
+      );
+    }
+    return KeyedSubtree(
+      key: ValueKey('mpv-${videoViewVersion.value}'),
+      child: SimpleVideo(
+        controller: _videoController!,
+        fill: fill,
+        aspectRatio: aspectRatio,
+      ),
+    );
   }
 
   /// Toggle Change the videofit accordingly
@@ -1351,16 +1532,17 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   bool get _isCompleted =>
-      videoPlayerController!.state.completed ||
+      isCurrentPlayerCompleted ||
       (duration.value - position).inMilliseconds <= 50;
 
   // 双击播放、暂停
   Future<void> onDoubleTapCenter() async {
     if (!isLive && _isCompleted) {
-      await videoPlayerController!.seek(Duration.zero);
-      videoPlayerController!.play();
+      await seekTo(Duration.zero, isSeek: false);
+      await play();
     } else {
-      videoPlayerController!.playOrPause();
+      await (_media3PlayerController?.playOrPause() ??
+          _videoPlayerController?.playOrPause());
     }
   }
 
@@ -1385,7 +1567,7 @@ class PlPlayerController with BlockConfigMixin {
 
   void onForwardBackward(Duration duration) {
     seekTo(
-      duration.clamp(Duration.zero, videoPlayerController!.state.duration),
+      duration.clamp(Duration.zero, currentPlayerDuration),
       isSeek: false,
     ).whenComplete(play);
   }
@@ -1664,9 +1846,21 @@ class PlPlayerController with BlockConfigMixin {
     if (kDebugMode) {
       debugPrint('dispose player');
     }
+    final hadMediaKit =
+        _videoPlayerController != null || _videoController != null;
     _videoPlayerController?.dispose();
     _videoPlayerController = null;
     _videoController = null;
+    if (hadMediaKit) {
+      videoViewVersion.value++;
+    }
+    final media3 = _media3PlayerController;
+    _media3PlayerController = null;
+    if (media3 != null) {
+      videoViewVersion.value++;
+      unawaited(media3.dispose());
+    }
+    _positionStreamController.close();
     _instance = null;
     videoPlayerServiceHandler?.clear();
   }
@@ -1691,9 +1885,45 @@ class PlPlayerController with BlockConfigMixin {
 
   void setOnlyPlayAudio() {
     onlyPlayAudio.value = !onlyPlayAudio.value;
-    videoPlayerController?.setVideoTrack(
-      onlyPlayAudio.value ? VideoTrack.no() : VideoTrack.auto(),
-    );
+    if (_media3PlayerController case final player?) {
+      player.setAudioOnly(onlyPlayAudio.value);
+    } else {
+      videoPlayerController?.setVideoTrack(
+        onlyPlayAudio.value ? VideoTrack.no() : VideoTrack.auto(),
+      );
+    }
+  }
+
+  Future<void> clearSubtitleTrack() {
+    return _media3PlayerController?.setSubtitle() ??
+        _videoPlayerController?.setSubtitleTrack(SubtitleTrack.no()) ??
+        Future.value();
+  }
+
+  Future<void> setSubtitleSource({
+    required String source,
+    required bool isData,
+    required String label,
+    required String language,
+  }) {
+    final media3 = _media3PlayerController;
+    if (media3 != null) {
+      return media3.setSubtitle(
+        data: isData ? source : null,
+        uri: isData ? null : source,
+        label: label,
+        language: language,
+      );
+    }
+    return _videoPlayerController?.setSubtitleTrack(
+          SubtitleTrack(
+            isData ? 'memory://$source' : source,
+            label,
+            language,
+            uri: true,
+          ),
+        ) ??
+        Future.value();
   }
 
   late final Map<String, ui.Image?> previewCache = {};
@@ -1732,11 +1962,15 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   Future<void> takeScreenshot() async {
+    if (!supportsScreenshot) {
+      SmartDialog.showToast('Media3 暂不支持截图');
+      return;
+    }
     SmartDialog.showToast('截图中');
     final time = DurationUtils.formatDuration(
       position.inMilliseconds / 1000,
     ).replaceAll(':', '-');
-    final image = await videoPlayerController?.screenshot();
+    final image = await captureScreenshot();
     if (image != null) {
       SmartDialog.showToast('点击弹窗保存截图');
       showDialog(
@@ -1781,6 +2015,9 @@ class PlPlayerController with BlockConfigMixin {
       SmartDialog.showToast('截图失败');
     }
   }
+
+  Future<ui.Image?> captureScreenshot() =>
+      videoPlayerController?.screenshot() ?? Future.value();
 
   void onPopInvokedWithResult(bool didPop, Object? result) {
     if (didPop) {
