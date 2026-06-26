@@ -107,6 +107,18 @@ List<SettingsModel> get styleSettings => [
     getSubtitle: () => '当前：${Pref.pageTransition.name}',
     onTap: _showTransitionDialog,
   ),
+  if (Platform.isAndroid)
+    SwitchModel(
+      title: '预测性返回动画',
+      subtitle: '开启后侧滑返回可原生预览上一页及桌面',
+      leading: const Icon(Icons.swipe_left_outlined),
+      setKey: SettingBoxKey.enablePredictiveBack,
+      defaultVal: true,
+      onChanged: (_) {
+        Get.rootController.defaultTransition = Pref.effectivePageTransition;
+        Get.updateMyAppTheme();
+      },
+    ),
   const SwitchModel(
     title: '优化平板导航栏',
     leading: Icon(Icons.auto_fix_high),
@@ -661,8 +673,9 @@ Future<void> _showTransitionDialog(
     ),
   );
   if (res != null) {
-    Get.rootController.defaultTransition = res;
     await GStorage.setting.put(SettingBoxKey.pageTransition, res.index);
+    Get.rootController.defaultTransition = Pref.effectivePageTransition;
+    Get.updateMyAppTheme();
     setState();
   }
 }

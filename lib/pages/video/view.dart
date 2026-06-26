@@ -500,6 +500,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       () {
         final isFullScreen = this.isFullScreen;
         return Scaffold(
+          backgroundColor: themeData.scaffoldBackgroundColor,
           resizeToAvoidBottomInset: false,
           appBar: removeAppBar(isFullScreen)
               ? null
@@ -579,12 +580,25 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
+                      // Cover subpixel gaps exposed by Android predictive back scaling.
+                      const Positioned(
+                        top: -1,
+                        left: 0,
+                        right: 0,
+                        height: 2,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(color: Colors.black),
+                        ),
+                      ),
                       SizedBox(
                         width: maxWidth,
                         height: height,
-                        child: videoPlayer(
-                          width: maxWidth,
-                          height: height,
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(color: Colors.black),
+                          child: videoPlayer(
+                            width: maxWidth,
+                            height: height,
+                          ),
                         ),
                       ),
                       Obx(
