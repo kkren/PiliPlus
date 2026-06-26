@@ -871,6 +871,12 @@ class HeaderControlState extends State<HeaderControl>
                       debugInfo['lastDroppedVideoFrameElapsedMs'],
                     ),
                     infoTile(
+                      'NetworkSpeed',
+                      _formatBytesPerSecond(
+                        debugInfo['networkSpeedBytesPerSecond'],
+                      ),
+                    ),
+                    infoTile(
                       'BandwidthEstimate',
                       _formatBitsPerSecond(
                         debugInfo['bandwidthEstimateBitsPerSecond'],
@@ -971,6 +977,19 @@ class HeaderControlState extends State<HeaderControl>
   static String? _formatBitsPerSecondOrNull(Object? value) {
     final text = _formatBitsPerSecond(value);
     return text == 'unknown' ? null : text;
+  }
+
+  static String _formatBytesPerSecond(Object? value) {
+    final speed = value is num ? value.toDouble() : null;
+    if (speed == null || speed <= 0) return 'unknown';
+    const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+    var unitIndex = 0;
+    var scaled = speed;
+    while (scaled >= 1024 && unitIndex < units.length - 1) {
+      scaled /= 1024;
+      unitIndex++;
+    }
+    return '${scaled.toStringAsFixed(unitIndex == 0 ? 0 : 2)} ${units[unitIndex]}';
   }
 
   static String _debugValueText(Object? value, [int indent = 0]) {

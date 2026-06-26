@@ -1908,9 +1908,17 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         ],
 
         Obx(() {
-          if (plPlayerController.dataStatus.loading ||
-              (plPlayerController.isBuffering.value &&
-                  plPlayerController.playerStatus.isPlaying)) {
+          final isMedia3Loading =
+              plPlayerController.isMedia3Backend &&
+              (plPlayerController.dataStatus.loading ||
+                  (plPlayerController.isBuffering.value &&
+                      plPlayerController.playerStatus.isPlaying));
+          final isDefaultLoading =
+              !plPlayerController.isMedia3Backend &&
+              (plPlayerController.dataStatus.loading ||
+                  (plPlayerController.isBuffering.value &&
+                      plPlayerController.playerStatus.isPlaying));
+          if (isMedia3Loading || isDefaultLoading) {
             return Center(
               child: GestureDetector(
                 onTap: plPlayerController.refreshPlayer,
@@ -1932,7 +1940,22 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                         semanticLabel: "加载中",
                         color: Colors.white,
                       ),
-                      if (plPlayerController.isBuffering.value)
+                      if (plPlayerController.isMedia3Backend)
+                        Obx(() {
+                          final speed =
+                              plPlayerController.media3NetworkSpeed.value;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              speed.isEmpty ? '加载中' : speed,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          );
+                        })
+                      else if (plPlayerController.isBuffering.value)
                         Obx(() {
                           if (plPlayerController.bufferedSeconds.value == 0) {
                             return const Text(

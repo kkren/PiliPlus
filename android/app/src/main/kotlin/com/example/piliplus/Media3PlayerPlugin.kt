@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.ContextThemeWrapper
 import android.view.Display
 import android.view.SurfaceView
@@ -22,8 +23,11 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.TransferListener
 import androidx.media3.exoplayer.DecoderCounters
 import androidx.media3.exoplayer.DecoderReuseEvaluation
 import androidx.media3.exoplayer.ExoPlayer
@@ -121,13 +125,68 @@ private class Media3PlayerSession(
     private var bandwidthEstimateBitsPerSecond = 0L
     private var lastBandwidthLoadTimeMs = 0
     private var lastBandwidthBytesLoaded = 0L
+    private var networkSpeedBytesPerSecond = 0L
+    private var networkSpeedWindowStartedMs = 0L
+    private var networkSpeedWindowBytes = 0L
+    private var activeNetworkTransfers = 0
+    private var lastNetworkSpeedStateSentMs = 0L
     private var hdrModeEnabled = false
     private var desiredSurfaceHdrHeadroom = 0f
     private var desiredWindowHdrHeadroom = 0f
     private var attachedViewId: Int? = null
 
+    private val transferListener = object : TransferListener {
+        override fun onTransferInitializing(
+            source: DataSource,
+            dataSpec: DataSpec,
+            isNetwork: Boolean,
+        ) = Unit
+
+        override fun onTransferStart(
+            source: DataSource,
+            dataSpec: DataSpec,
+            isNetwork: Boolean,
+        ) {
+            if (!isNetwork) return
+            activeNetworkTransfers += 1
+            if (networkSpeedWindowStartedMs == 0L) {
+                networkSpeedWindowStartedMs = SystemClock.elapsedRealtime()
+                networkSpeedWindowBytes = 0L
+            }
+            sendStateOnMain()
+        }
+
+        override fun onBytesTransferred(
+            source: DataSource,
+            dataSpec: DataSpec,
+            isNetwork: Boolean,
+            bytesTransferred: Int,
+        ) {
+            if (!isNetwork || bytesTransferred <= 0) return
+            updateNetworkSpeed(bytesTransferred.toLong(), force = false)
+        }
+
+        override fun onTransferEnd(
+            source: DataSource,
+            dataSpec: DataSpec,
+            isNetwork: Boolean,
+        ) {
+            if (!isNetwork) return
+            if (networkSpeedWindowBytes > 0) {
+                updateNetworkSpeed(0L, force = true)
+            }
+            activeNetworkTransfers = (activeNetworkTransfers - 1).coerceAtLeast(0)
+            if (activeNetworkTransfers == 0) {
+                networkSpeedWindowStartedMs = 0L
+                networkSpeedWindowBytes = 0L
+            }
+            sendStateOnMain()
+        }
+    }
+
     private val httpFactory = DefaultHttpDataSource.Factory()
     private val dataSourceFactory = DefaultDataSource.Factory(activity, httpFactory)
+        .setTransferListener(transferListener)
     private val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
     private val player = ExoPlayer.Builder(activity).build()
     private var activePlayerView: PlayerView? = null
@@ -238,6 +297,11 @@ private class Media3PlayerSession(
                     lastBandwidthLoadTimeMs = totalLoadTimeMs
                     lastBandwidthBytesLoaded = totalBytesLoaded
                     bandwidthEstimateBitsPerSecond = bitrateEstimate
+                    networkSpeedBytesPerSecond = if (totalLoadTimeMs > 0) {
+                        totalBytesLoaded * 1000L / totalLoadTimeMs
+                    } else {
+                        0L
+                    }
                     sendState()
                 }
             },
@@ -581,6 +645,33 @@ private class Media3PlayerSession(
         }
     }
 
+    private fun sendStateOnMain() {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            sendState()
+        } else {
+            mainHandler.post { sendState() }
+        }
+    }
+
+    private fun updateNetworkSpeed(bytesTransferred: Long, force: Boolean) {
+        val now = SystemClock.elapsedRealtime()
+        if (networkSpeedWindowStartedMs == 0L) {
+            networkSpeedWindowStartedMs = now
+        }
+        networkSpeedWindowBytes += bytesTransferred
+        val elapsedMs = now - networkSpeedWindowStartedMs
+        if (!force && elapsedMs < 250L) return
+        if (elapsedMs > 0L && networkSpeedWindowBytes > 0L) {
+            networkSpeedBytesPerSecond = networkSpeedWindowBytes * 1000L / elapsedMs
+        }
+        networkSpeedWindowStartedMs = now
+        networkSpeedWindowBytes = 0L
+        if (force || now - lastNetworkSpeedStateSentMs >= 250L) {
+            lastNetworkSpeedStateSentMs = now
+            sendStateOnMain()
+        }
+    }
+
     private fun hdrTypeName(type: Int): String {
         return when (type) {
             Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION -> "DOLBY_VISION"
@@ -605,6 +696,11 @@ private class Media3PlayerSession(
         bandwidthEstimateBitsPerSecond = 0L
         lastBandwidthLoadTimeMs = 0
         lastBandwidthBytesLoaded = 0L
+        networkSpeedBytesPerSecond = 0L
+        networkSpeedWindowStartedMs = 0L
+        networkSpeedWindowBytes = 0L
+        activeNetworkTransfers = 0
+        lastNetworkSpeedStateSentMs = 0L
     }
 
     private fun debugInfo(): Map<String, Any?> {
@@ -621,6 +717,7 @@ private class Media3PlayerSession(
             "rate" to player.playbackParameters.speed,
             "volume" to (player.volume * 100f),
             "media" to mediaInfo(),
+            "networkSpeedBytesPerSecond" to networkSpeedBytesPerSecond,
             "bandwidthEstimateBitsPerSecond" to bandwidthEstimateBitsPerSecond,
             "lastBandwidthLoadTimeMs" to lastBandwidthLoadTimeMs,
             "lastBandwidthBytesLoaded" to lastBandwidthBytesLoaded,

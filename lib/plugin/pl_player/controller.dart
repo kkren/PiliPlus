@@ -107,6 +107,7 @@ class PlPlayerController with BlockConfigMixin {
   /// 视频缓冲
   final Rx<Duration> buffered = Rx(Duration.zero);
   final RxInt bufferedSeconds = 0.obs;
+  final RxString media3NetworkSpeed = ''.obs;
 
   int _playerCount = 0;
 
@@ -899,6 +900,7 @@ class PlPlayerController with BlockConfigMixin {
   ) async {
     isBuffering.value = false;
     buffered.value = Duration.zero;
+    media3NetworkSpeed.value = '';
     _heartDuration = 0;
     position = Duration.zero;
     // 初始化时清空弹幕，防止上次重叠
@@ -1133,6 +1135,28 @@ class PlPlayerController with BlockConfigMixin {
     );
   }
 
+  void _handleMedia3DebugInfoChanged(Map<String, Object?> event) {
+    final text = _formatMedia3NetworkSpeed(
+      event['networkSpeedBytesPerSecond'],
+    );
+    if (media3NetworkSpeed.value != text) {
+      media3NetworkSpeed.value = text;
+    }
+  }
+
+  String _formatMedia3NetworkSpeed(Object? value) {
+    final speed = value is num ? value.toDouble() : 0;
+    if (speed <= 0) return '';
+    const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+    var unitIndex = 0;
+    var scaled = speed;
+    while (scaled >= 1024 && unitIndex < units.length - 1) {
+      scaled /= 1024;
+      unitIndex++;
+    }
+    return '${scaled.toStringAsFixed(unitIndex == 0 ? 0 : 2)} ${units[unitIndex]}';
+  }
+
   void _handlePlayerError(String event) {
     if (dataSource is FileSource && event.startsWith("Failed to open file")) {
       return;
@@ -1218,6 +1242,7 @@ class PlPlayerController with BlockConfigMixin {
       player.durationStream.listen(_handleDurationChanged),
       player.bufferedStream.listen(_handleBufferChanged),
       player.bufferingStream.listen(_handleBufferingChanged),
+      player.debugInfoStream.listen(_handleMedia3DebugInfoChanged),
       player.errorStream.listen(_handlePlayerError),
       if (videoPlayerServiceHandler != null)
         positionSeconds.listen((int event) {
