@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math' show min;
 import 'dart:ui';
 
@@ -48,10 +49,12 @@ import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
 import 'package:PiliPlus/plugin/pl_player/models/heart_beat_type.dart';
+import 'package:PiliPlus/plugin/pl_player/models/player_engine.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/services/download/download_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/connectivity_utils.dart';
+import 'package:PiliPlus/utils/dash_mpd_utils.dart';
 import 'package:PiliPlus/utils/extension/context_ext.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/extension/nested_scroll_ext.dart';
@@ -128,6 +131,11 @@ class VideoDetailController extends GetxController
   late VideoItem firstVideo;
   String? videoUrl;
   String? audioUrl;
+  bool get canUseAdaptiveDash =>
+      !isFileSource &&
+      Platform.isAndroid &&
+      plPlayerController.playerEngine == PlayerEngine.media3;
+  bool get isAdaptiveDash => currentVideoQa.value == VideoQuality.auto;
   Duration? defaultST;
   Duration? playedTime;
   String get playedTimePos {
@@ -700,6 +708,109 @@ class VideoDetailController extends GetxController
     return bestVideo ?? videoList.first;
   }
 
+  VideoDecodeFormatType _selectAdaptiveDecodeFormat(List<VideoItem> videos) {
+    VideoDecodeFormatType? fallback;
+    for (final format in preferCodecs) {
+      final matchedQualities = videos
+          .where(
+            (video) =>
+                video.codecs != null &&
+                format.codes.any(video.codecs!.startsWith),
+          )
+          .map((video) => video.quality.code)
+          .toSet();
+      if (matchedQualities.length > 1) {
+        return format;
+      }
+      if (matchedQualities.isNotEmpty) {
+        fallback ??= format;
+      }
+    }
+    final firstCodecs = videos
+        .firstWhereOrNull((i) => i.codecs != null)
+        ?.codecs;
+    return fallback ??
+        (firstCodecs == null
+            ? VideoDecodeFormatType.AVC
+            : VideoDecodeFormatType.fromString(firstCodecs));
+  }
+
+  List<VideoItem> _adaptiveVideosForFormat(
+    List<VideoItem> videos,
+    VideoDecodeFormatType format,
+  ) => videos
+      .where(
+        (video) =>
+            video.codecs != null &&
+            format.codes.any(video.codecs!.startsWith) &&
+            video.playUrls.isNotEmpty,
+      )
+      .toList();
+
+  AudioItem? _selectAudioItem() {
+    final audioList = data.dash?.audio;
+    if (audioList == null || audioList.isEmpty) {
+      audioUrl = '';
+      currentAudioQa = null;
+      return null;
+    }
+
+    final List<int> audioIds = audioList.map((map) => map.id!).toList();
+    int closestNumber = audioIds.findClosestTarget(
+      (e) => e <= plPlayerController.cacheAudioQa,
+      (a, b) => a > b ? a : b,
+    );
+    if (!audioIds.contains(plPlayerController.cacheAudioQa) &&
+        audioIds.any((e) => e > plPlayerController.cacheAudioQa)) {
+      closestNumber = AudioQuality.k192.code;
+    }
+    final firstAudio = audioList.firstWhere(
+      (e) => e.id == closestNumber,
+      orElse: () => audioList.first,
+    );
+    audioUrl = VideoUtils.getCdnUrl(firstAudio.playUrls, isAudio: true);
+    if (firstAudio.id case final int id?) {
+      currentAudioQa = AudioQuality.fromCode(id);
+    }
+    return firstAudio;
+  }
+
+  bool _setAdaptiveDashSource(
+    List<VideoItem> videos,
+    AudioItem? audioItem, {
+    bool keepCurrentCodec = false,
+  }) {
+    if (!canUseAdaptiveDash || videos.isEmpty) {
+      return false;
+    }
+    if (!keepCurrentCodec) {
+      currentDecodeFormats = _selectAdaptiveDecodeFormat(videos);
+    }
+    final adaptiveVideos = _adaptiveVideosForFormat(
+      videos,
+      currentDecodeFormats,
+    );
+    if (adaptiveVideos.isEmpty) {
+      return false;
+    }
+
+    firstVideo = adaptiveVideos.first;
+    _setVideoHeight();
+    currentVideoQa.value = VideoQuality.auto;
+    videoUrl = DashMpdUtils.buildDataUri(
+      duration: data.timeLength == null
+          ? data.dash?.duration == null
+                ? null
+                : Duration(seconds: data.dash!.duration!)
+          : Duration(milliseconds: data.timeLength!),
+      minBufferTime: data.dash?.minBufferTime,
+      videoItems: adaptiveVideos,
+      audioItem: audioItem,
+    );
+    audioUrl = null;
+    return true;
+  }
+
   /// 更新画质、音质
   void updatePlayer() {
     final currentVideoQa = this.currentVideoQa.value;
@@ -709,6 +820,16 @@ class VideoDetailController extends GetxController
     plPlayerController
       ..isBuffering.value = false
       ..buffered.value = 0;
+
+    if (currentVideoQa == VideoQuality.auto) {
+      final audioItem = _selectAudioItem();
+      final videos = data.dash!.video!;
+      if (_setAdaptiveDashSource(videos, audioItem, keepCurrentCodec: true) ||
+          _setAdaptiveDashSource(videos, audioItem)) {
+        playerInit();
+      }
+      return;
+    }
 
     firstVideo = findVideoByQa(currentVideoQa.code, setCodecs: true);
     videoUrl = VideoUtils.getCdnUrl(firstVideo.playUrls);
@@ -757,6 +878,9 @@ class VideoDetailController extends GetxController
           : NetworkSource(
               videoSource: videoUrl!,
               audioSource: audioUrl,
+              sourceType: isAdaptiveDash
+                  ? PlPlayerSourceType.dash
+                  : PlPlayerSourceType.media,
             ),
       seekTo: seek,
       duration: data.timeLength == null
@@ -915,6 +1039,13 @@ class VideoDetailController extends GetxController
         return;
       }
       final List<VideoItem> videoList = data.dash!.video!;
+      final firstAudio = _selectAudioItem();
+      if (plPlayerController.cacheVideoQa == VideoQuality.auto.code &&
+          _setAdaptiveDashSource(videoList, firstAudio)) {
+        await _initPlayerIfNeeded(autoFullScreenFlag);
+        isQuerying = false;
+        return;
+      }
       // if (kDebugMode) debugPrint("allVideosList:${allVideosList}");
       // 当前可播放的最高质量视频
       final curHighestVideoQa = videoList.first.quality.code;
@@ -958,30 +1089,6 @@ class VideoDetailController extends GetxController
 
       videoUrl = VideoUtils.getCdnUrl(firstVideo.playUrls);
 
-      /// 优先顺序 设置中指定质量 -> 当前可选的最高质量
-      AudioItem? firstAudio;
-      final audioList = data.dash?.audio;
-      if (audioList != null && audioList.isNotEmpty) {
-        final List<int> audioIds = audioList.map((map) => map.id!).toList();
-        int closestNumber = audioIds.findClosestTarget(
-          (e) => e <= plPlayerController.cacheAudioQa,
-          (a, b) => a > b ? a : b,
-        );
-        if (!audioIds.contains(plPlayerController.cacheAudioQa) &&
-            audioIds.any((e) => e > plPlayerController.cacheAudioQa)) {
-          closestNumber = AudioQuality.k192.code;
-        }
-        firstAudio = audioList.firstWhere(
-          (e) => e.id == closestNumber,
-          orElse: () => audioList.first,
-        );
-        audioUrl = VideoUtils.getCdnUrl(firstAudio.playUrls, isAudio: true);
-        if (firstAudio.id case final int id?) {
-          currentAudioQa = AudioQuality.fromCode(id);
-        }
-      } else {
-        audioUrl = '';
-      }
       await _initPlayerIfNeeded(autoFullScreenFlag);
     } else {
       _autoPlay.value = false;

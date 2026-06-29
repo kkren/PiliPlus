@@ -292,6 +292,11 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
     }
   }
 
+  bool get _hasPlayableSource =>
+      videoDetailController.videoUrl != null &&
+      (videoDetailController.audioUrl != null ||
+          videoDetailController.isAdaptiveDash);
+
   /// 未开启自动播放时触发播放
   Future<void>? handlePlay() {
     if (!videoDetailController.isFileSource) {
@@ -299,8 +304,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         if (kDebugMode) debugPrint('handlePlay: querying');
         return null;
       }
-      if (videoDetailController.videoUrl == null ||
-          videoDetailController.audioUrl == null) {
+      if (!_hasPlayableSource) {
         if (kDebugMode) {
           debugPrint('handlePlay: videoUrl/audioUrl not initialized');
         }
@@ -731,10 +735,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                                           }
                                           return;
                                         }
-                                        if (videoDetailController.videoUrl ==
-                                                null ||
-                                            videoDetailController.audioUrl ==
-                                                null) {
+                                        if (!_hasPlayableSource) {
                                           if (kDebugMode) {
                                             debugPrint(
                                               'handlePlay: videoUrl/audioUrl not initialized',

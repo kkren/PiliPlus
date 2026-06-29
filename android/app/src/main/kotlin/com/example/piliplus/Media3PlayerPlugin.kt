@@ -107,6 +107,7 @@ private class Media3PlayerSession(
 
     private var videoSource: String? = null
     private var audioSource: String? = null
+    private var sourceType: String = "media"
     private var isLive = false
     private var subtitleUri: String? = null
     private var subtitleData: String? = null
@@ -428,6 +429,7 @@ private class Media3PlayerSession(
     private fun open(call: MethodCall) {
         videoSource = call.argument<String>("videoSource")
         audioSource = call.argument<String>("audioSource")
+        sourceType = call.argument<String>("sourceType") ?: "media"
         isLive = call.argument<Boolean>("isLive") ?: false
         subtitleUri = call.argument<String>("subtitleUri")
         subtitleData = call.argument<String>("subtitleData")
@@ -463,20 +465,29 @@ private class Media3PlayerSession(
     }
 
     private fun buildMediaSource(video: String, audio: String?): MediaSource {
-        val videoItem = mediaItem(video, subtitleConfigurations())
+        val isDash = sourceType == "dash"
+        val videoItem = mediaItem(
+            video,
+            subtitleConfigurations(),
+            if (isDash) MimeTypes.APPLICATION_MPD else null,
+        )
         val videoSource = mediaSourceFactory.createMediaSource(videoItem)
-        if (audio.isNullOrBlank()) {
+        if (audio.isNullOrBlank() || isDash) {
             return videoSource
         }
-        val audioSource = mediaSourceFactory.createMediaSource(mediaItem(audio, emptyList()))
+        val audioSource = mediaSourceFactory.createMediaSource(mediaItem(audio, emptyList(), null))
         return MergingMediaSource(true, true, videoSource, audioSource)
     }
 
     private fun mediaItem(
         source: String,
         subtitles: List<MediaItem.SubtitleConfiguration>,
+        mimeType: String?,
     ): MediaItem {
         val builder = MediaItem.Builder().setUri(uriFor(source))
+        if (!mimeType.isNullOrBlank()) {
+            builder.setMimeType(mimeType)
+        }
         if (isLive) {
             builder.setLiveConfiguration(MediaItem.LiveConfiguration.Builder().build())
         }
@@ -515,7 +526,8 @@ private class Media3PlayerSession(
             source.startsWith("http://") ||
             source.startsWith("https://") ||
             source.startsWith("file://") ||
-            source.startsWith("content://")
+            source.startsWith("content://") ||
+            source.startsWith("data:")
         ) {
             Uri.parse(source)
         } else {

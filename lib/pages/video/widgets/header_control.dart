@@ -1198,6 +1198,48 @@ class HeaderControlState extends State<HeaderControl>
                     ),
                   ),
                 ),
+                if (videoDetailCtr.canUseAdaptiveDash)
+                  SliverToBoxAdapter(
+                    child: ListTile(
+                      dense: true,
+                      onTap: () async {
+                        if (currentVideoQa == VideoQuality.auto) {
+                          return;
+                        }
+                        Get.back();
+                        videoDetailCtr
+                          ..plPlayerController.cacheVideoQa =
+                              VideoQuality.auto.code
+                          ..currentVideoQa.value = VideoQuality.auto
+                          ..updatePlayer();
+
+                        SmartDialog.showToast('画质已变为：自动');
+
+                        if (!plPlayerController.tempPlayerConf) {
+                          setting.put(
+                            await ConnectivityUtils.isWiFi
+                                ? SettingBoxKey.defaultVideoQa
+                                : SettingBoxKey.defaultVideoQaCellular,
+                            VideoQuality.auto.code,
+                          );
+                        }
+                      },
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                      ),
+                      title: const Text('自动'),
+                      subtitle: const Text(
+                        'Media3 DASH 自适应',
+                        style: subTitleStyle,
+                      ),
+                      trailing: currentVideoQa == VideoQuality.auto
+                          ? Icon(
+                              Icons.done,
+                              color: theme.colorScheme.primary,
+                            )
+                          : null,
+                    ),
+                  ),
                 SliverList.builder(
                   itemCount: totalQaSam,
                   itemBuilder: (context, index) {

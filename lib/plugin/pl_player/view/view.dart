@@ -818,51 +818,84 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             initialValue: currentVideoQa.code,
             color: Colors.black.withValues(alpha: 0.8),
             itemBuilder: (context) {
-              return List.generate(
-                totalQaSam,
-                (index) {
-                  final item = videoFormat[index];
-                  final enabled = index >= totalQaSam - usefulQaSam;
-                  return PopupMenuItem<int>(
-                    enabled: enabled,
+              return [
+                if (videoDetailController.canUseAdaptiveDash)
+                  PopupMenuItem<int>(
                     height: 35,
                     padding: const EdgeInsets.only(left: 15, right: 10),
-                    value: item.quality,
+                    value: VideoQuality.auto.code,
                     onTap: () async {
-                      if (currentVideoQa.code == item.quality) {
+                      if (currentVideoQa == VideoQuality.auto) {
                         return;
                       }
-                      final int quality = item.quality!;
-                      final newQa = VideoQuality.fromCode(quality);
                       videoDetailController
-                        ..plPlayerController.cacheVideoQa = newQa.code
-                        ..currentVideoQa.value = newQa
+                        ..plPlayerController.cacheVideoQa =
+                            VideoQuality.auto.code
+                        ..currentVideoQa.value = VideoQuality.auto
                         ..updatePlayer();
 
-                      SmartDialog.showToast("画质已变为：${newQa.desc}");
+                      SmartDialog.showToast('画质已变为：自动');
 
-                      // update
                       if (!plPlayerController.tempPlayerConf) {
                         GStorage.setting.put(
                           await ConnectivityUtils.isWiFi
                               ? SettingBoxKey.defaultVideoQa
                               : SettingBoxKey.defaultVideoQaCellular,
-                          quality,
+                          VideoQuality.auto.code,
                         );
                       }
                     },
-                    child: Text(
-                      item.newDesc ?? '',
-                      style: enabled
-                          ? const TextStyle(color: Colors.white, fontSize: 13)
-                          : const TextStyle(
-                              color: Color(0x62FFFFFF),
-                              fontSize: 13,
-                            ),
+                    child: const Text(
+                      '自动',
+                      style: TextStyle(color: Colors.white, fontSize: 13),
                     ),
-                  );
-                },
-              );
+                  ),
+                ...List.generate(
+                  totalQaSam,
+                  (index) {
+                    final item = videoFormat[index];
+                    final enabled = index >= totalQaSam - usefulQaSam;
+                    return PopupMenuItem<int>(
+                      enabled: enabled,
+                      height: 35,
+                      padding: const EdgeInsets.only(left: 15, right: 10),
+                      value: item.quality,
+                      onTap: () async {
+                        if (currentVideoQa.code == item.quality) {
+                          return;
+                        }
+                        final int quality = item.quality!;
+                        final newQa = VideoQuality.fromCode(quality);
+                        videoDetailController
+                          ..plPlayerController.cacheVideoQa = newQa.code
+                          ..currentVideoQa.value = newQa
+                          ..updatePlayer();
+
+                        SmartDialog.showToast("画质已变为：${newQa.desc}");
+
+                        // update
+                        if (!plPlayerController.tempPlayerConf) {
+                          GStorage.setting.put(
+                            await ConnectivityUtils.isWiFi
+                                ? SettingBoxKey.defaultVideoQa
+                                : SettingBoxKey.defaultVideoQaCellular,
+                            quality,
+                          );
+                        }
+                      },
+                      child: Text(
+                        item.newDesc ?? '',
+                        style: enabled
+                            ? const TextStyle(color: Colors.white, fontSize: 13)
+                            : const TextStyle(
+                                color: Color(0x62FFFFFF),
+                                fontSize: 13,
+                              ),
+                      ),
+                    );
+                  },
+                ),
+              ];
             },
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),

@@ -1,4 +1,5 @@
 enum VideoQuality {
+  auto(0, '自动', '自动'),
   hdrVivid(129, 'HDR Vivid', 'HDR Vivid'),
   super8k(127, '8K 超高清', '8K'),
   dolbyVision(126, '杜比视界', '杜比'),

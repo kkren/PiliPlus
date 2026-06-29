@@ -66,7 +66,12 @@ class _DownloadPanelState extends State<DownloadPanel> {
   final ListController _listController = ListController();
 
   late final cidSet = widget.cidSet;
-  VideoQuality _quality = VideoQuality.fromCode(Pref.defaultVideoQa);
+  VideoQuality _quality = _initialQuality;
+
+  static VideoQuality get _initialQuality {
+    final quality = VideoQuality.fromCode(Pref.defaultVideoQa);
+    return quality == VideoQuality.auto ? VideoQuality.super8k : quality;
+  }
 
   @override
   void initState() {
@@ -122,6 +127,7 @@ class _DownloadPanelState extends State<DownloadPanel> {
                 (context as Element).markNeedsBuild();
               },
               itemBuilder: (context) => VideoQuality.values
+                  .where((e) => e != VideoQuality.auto)
                   .map(
                     (e) => PopupMenuItem(
                       value: e,

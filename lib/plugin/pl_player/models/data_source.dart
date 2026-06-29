@@ -1,13 +1,20 @@
 import 'package:PiliPlus/utils/path_utils.dart';
 import 'package:path/path.dart' as path;
 
+enum PlPlayerSourceType {
+  media,
+  dash,
+}
+
 sealed class DataSource {
   final String videoSource;
   final String? audioSource;
+  final PlPlayerSourceType sourceType;
 
   DataSource({
     required this.videoSource,
     required this.audioSource,
+    this.sourceType = PlPlayerSourceType.media,
   });
 }
 
@@ -15,6 +22,7 @@ class NetworkSource extends DataSource {
   NetworkSource({
     required super.videoSource,
     required super.audioSource,
+    super.sourceType,
   });
 }
 

@@ -954,11 +954,13 @@ class PlPlayerController with BlockConfigMixin {
     }
 
     final audio = dataSource.audioSource;
+    final useAudioOnlySource = onlyPlayAudio.value && audio?.isNotEmpty == true;
     await player.open(
-      videoSource: onlyPlayAudio.value && audio?.isNotEmpty == true
-          ? audio!
-          : dataSource.videoSource,
-      audioSource: onlyPlayAudio.value ? null : audio,
+      videoSource: useAudioOnlySource ? audio! : dataSource.videoSource,
+      audioSource: useAudioOnlySource ? null : audio,
+      sourceType: useAudioOnlySource
+          ? PlPlayerSourceType.media.name
+          : dataSource.sourceType.name,
       start: seekTo,
       play: false,
       isLive: isLive,

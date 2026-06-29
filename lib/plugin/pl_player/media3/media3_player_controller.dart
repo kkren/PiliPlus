@@ -107,6 +107,7 @@ class Media3PlayerController {
   Future<void> open({
     required String videoSource,
     required String? audioSource,
+    required String sourceType,
     required Duration? start,
     required bool play,
     required bool isLive,
@@ -118,6 +119,7 @@ class Media3PlayerController {
     return _invoke('open', {
       'videoSource': videoSource,
       'audioSource': audioSource,
+      'sourceType': sourceType,
       'startMs': start?.inMilliseconds ?? 0,
       'play': play,
       'isLive': isLive,
