@@ -7,6 +7,19 @@ allprojects {
     }
 }
 
+subprojects {
+    plugins.withId("org.jetbrains.kotlin.android") {
+        extensions.configure(org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension::class.java) {
+            sourceSets.getByName("main").kotlin.srcDir("src/main/kotlin")
+        }
+    }
+    plugins.withId("kotlin-android") {
+        extensions.configure(org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension::class.java) {
+            sourceSets.getByName("main").kotlin.srcDir("src/main/kotlin")
+        }
+    }
+}
+
 val newBuildDir: Directory =
     rootProject.layout.buildDirectory
         .dir("../../build")
@@ -32,6 +45,7 @@ subprojects {
                 sourceCompatibility = JavaVersion.VERSION_17
                 targetCompatibility = JavaVersion.VERSION_17
             }
+            androidExtension.sourceSets.getByName("main").java.srcDir("src/main/kotlin")
 
             project.tasks.withType<KotlinCompile>().configureEach {
                 compilerOptions {

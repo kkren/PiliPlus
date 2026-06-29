@@ -1472,13 +1472,13 @@ class PlPlayerController with BlockConfigMixin {
     }
   }
 
-  bool get _isCompleted =>
+  bool get isCompleted =>
       isCurrentPlayerCompleted ||
       durationInMilliseconds - positionInMilliseconds <= 50;
 
   // 双击播放、暂停
   Future<void> onDoubleTapCenter() async {
-    if (!isLive && _isCompleted) {
+    if (!isLive && isCompleted) {
       await seekTo(Duration.zero, isSeek: false);
       await play();
     } else {

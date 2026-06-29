@@ -665,7 +665,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                                           Text(
                                             '${videoDetailController.playedTime == null
                                                 ? '立即'
-                                                : plPlayerController!.playerStatus.isCompleted
+                                                : plPlayerController!.isCompleted
                                                 ? '重新'
                                                 : '继续'}播放',
                                             style: TextStyle(
@@ -727,9 +727,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                                       if (!videoDetailController.isFileSource) {
                                         if (videoDetailController.isQuerying) {
                                           if (kDebugMode) {
-                                            debugPrint(
-                                              'handlePlay: querying',
-                                            );
+                                            debugPrint('handlePlay: querying');
                                           }
                                           return;
                                         }
