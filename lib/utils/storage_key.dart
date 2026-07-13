@@ -207,6 +207,7 @@ abstract final class SettingBoxKey {
       danmakuMassiveMode = 'danmakuMassiveMode',
       danmakuFixedV = 'danmakuFixedV',
       danmakuStatic2Scroll = 'danmakuStatic2Scroll',
+      danmakuMask = 'danmakuMask',
       danmakuLineHeight = 'danmakuLineHeight',
       danmakuStrokeWidth = 'strokeWidth',
       danmakuFontWeight = 'fontWeight';

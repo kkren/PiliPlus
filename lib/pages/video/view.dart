@@ -1293,6 +1293,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
                         key: ValueKey(videoDetailController.cid.value),
                         isPipMode: isPipMode,
                         cid: videoDetailController.cid.value,
+                        maskUrl: videoDetailController.danmakuMaskUrl.value,
                         playerController: plPlayerController!,
                         isFullScreen: plPlayerController!.isFullScreen.value,
                         isFileSource: videoDetailController.isFileSource,

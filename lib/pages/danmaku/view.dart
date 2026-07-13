@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:PiliPlus/grpc/bilibili/community/service/dm/v1.pb.dart';
 import 'package:PiliPlus/pages/danmaku/controller.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
+import 'package:PiliPlus/pages/danmaku/mask.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
@@ -14,6 +15,7 @@ import 'package:get/get.dart';
 /// 传入播放器控制器，监听播放进度，加载对应弹幕
 class PlDanmaku extends StatefulWidget {
   final int cid;
+  final String? maskUrl;
   final PlPlayerController playerController;
   final bool isPipMode;
   final bool isFullScreen;
@@ -23,6 +25,7 @@ class PlDanmaku extends StatefulWidget {
   const PlDanmaku({
     super.key,
     required this.cid,
+    this.maskUrl,
     required this.playerController,
     this.isPipMode = false,
     required this.isFullScreen,
@@ -42,6 +45,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
   late final PlDanmakuController _plDanmakuController;
   DanmakuController<DanmakuExtra>? _controller;
   int latestAddedPosition = -1;
+  final ValueNotifier<Duration> _maskPosition = ValueNotifier(Duration.zero);
 
   @override
   void initState() {
@@ -91,6 +95,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
 
   @pragma('vm:notify-debugger-on-exception')
   void videoPositionListen(Duration position) {
+    _maskPosition.value = position;
     if (_controller == null || !playerController.enableShowDanmaku.value) {
       return;
     }
@@ -163,6 +168,7 @@ class _PlDanmakuState extends State<PlDanmaku> {
       ..removePositionListener(videoPositionListen)
       ..removeStatusLister(playerListener);
     _plDanmakuController.dispose();
+    _maskPosition.dispose();
     _controller = null;
     super.dispose();
   }
@@ -179,12 +185,17 @@ class _PlDanmakuState extends State<PlDanmaku> {
             ? playerController.danmakuOpacity.value
             : 0,
         duration: const Duration(milliseconds: 100),
-        child: DanmakuScreen<DanmakuExtra>(
-          createdController: (e) {
-            playerController.danmakuController = _controller = e;
-          },
-          option: option,
-          size: widget.size,
+        child: DanmakuMask(
+          url: widget.maskUrl,
+          enabled: playerController.enableDanmakuMask.value,
+          position: _maskPosition,
+          child: DanmakuScreen<DanmakuExtra>(
+            createdController: (e) {
+              playerController.danmakuController = _controller = e;
+            },
+            option: option,
+            size: widget.size,
+          ),
         ),
       ),
     );

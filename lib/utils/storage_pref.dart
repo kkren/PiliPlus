@@ -384,6 +384,9 @@ abstract final class Pref {
   static bool get danmakuStatic2Scroll =>
       _setting.get(SettingBoxKey.danmakuStatic2Scroll, defaultValue: false);
 
+  static bool get danmakuMask =>
+      _setting.get(SettingBoxKey.danmakuMask, defaultValue: true);
+
   static double get subtitleFontScale =>
       _setting.get(SettingBoxKey.subtitleFontScale, defaultValue: 1.0);
 

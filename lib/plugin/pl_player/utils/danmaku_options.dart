@@ -46,7 +46,10 @@ abstract final class DanmakuOptions {
     );
   }
 
-  static Future<void>? save(double danmakuOpacity) {
+  static Future<void>? save(
+    double danmakuOpacity,
+    bool enableDanmakuMask,
+  ) {
     return GStorage.setting.putAllNE({
       SettingBoxKey.danmakuBlockType: blockTypes.toList(),
       SettingBoxKey.danmakuShowArea: danmakuShowArea,
@@ -62,6 +65,7 @@ abstract final class DanmakuOptions {
       SettingBoxKey.danmakuFixedV: danmakuFixedV,
       SettingBoxKey.danmakuWeight: danmakuWeight,
       SettingBoxKey.danmakuOpacity: danmakuOpacity,
+      SettingBoxKey.danmakuMask: enableDanmakuMask,
     });
   }
 }

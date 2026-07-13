@@ -364,6 +364,7 @@ class PlPlayerController with BlockConfigMixin {
     0,
   ).toRadixString(16);
   late final RxDouble danmakuOpacity = Pref.danmakuOpacity.obs;
+  late final RxBool enableDanmakuMask = Pref.danmakuMask.obs;
 
   late List<double> speedList = Pref.speedList;
   late bool enableAutoLongPressSpeed = Pref.enableAutoLongPressSpeed;

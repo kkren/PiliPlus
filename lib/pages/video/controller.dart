@@ -1120,6 +1120,7 @@ class VideoDetailController extends GetxController
   }
 
   RxList<Subtitle> subtitles = RxList<Subtitle>();
+  final RxnString danmakuMaskUrl = RxnString();
   final Map<int, ({bool isData, String id})> vttSubtitles = {};
   late final vttSubtitlesIndex = (-1).obs;
   late final showVP = true.obs;
@@ -1191,6 +1192,7 @@ class VideoDetailController extends GetxController
   late bool continuePlayingPart = Pref.continuePlayingPart;
 
   Future<void> _queryPlayInfo() async {
+    danmakuMaskUrl.value = null;
     vttSubtitles.clear();
     vttSubtitlesIndex.value = 0;
     if (plPlayerController.showViewPoints) {
@@ -1203,6 +1205,7 @@ class VideoDetailController extends GetxController
       epId: epId,
     );
     if (res case Success(:final response)) {
+      danmakuMaskUrl.value = response.danmakuMaskUrl;
       // interactive video
       late final introCtr = Get.find<UgcIntroController>(tag: heroTag);
       if (isUgc && graphVersion == null) {
@@ -1360,6 +1363,7 @@ class VideoDetailController extends GetxController
 
     // danmaku
     savedDanmaku = null;
+    danmakuMaskUrl.value = null;
 
     // subtitle
     subtitles.clear();

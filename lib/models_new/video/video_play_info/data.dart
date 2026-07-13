@@ -4,12 +4,14 @@ import 'package:PiliPlus/models_new/video/video_play_info/view_point.dart';
 
 class PlayInfoData {
   int? lastPlayCid;
+  String? danmakuMaskUrl;
   SubtitleInfo? subtitle;
   List<ViewPoint>? viewPoints;
   Interaction? interaction;
 
   PlayInfoData({
     this.lastPlayCid,
+    this.danmakuMaskUrl,
     this.subtitle,
     this.viewPoints,
     this.interaction,
@@ -17,6 +19,8 @@ class PlayInfoData {
 
   factory PlayInfoData.fromJson(Map<String, dynamic> json) => PlayInfoData(
     lastPlayCid: json['last_play_cid'] as int?,
+    danmakuMaskUrl:
+        (json['dm_mask'] as Map<String, dynamic>?)?['mask_url'] as String?,
     subtitle: json['subtitle'] == null
         ? null
         : SubtitleInfo.fromJson(json['subtitle'] as Map<String, dynamic>),

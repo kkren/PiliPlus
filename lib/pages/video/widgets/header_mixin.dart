@@ -260,6 +260,16 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
                           },
                           text: '海量弹幕',
                         ),
+                        if (!isLive)
+                          ActionRowLineItem(
+                            selectStatus:
+                                plPlayerController.enableDanmakuMask.value,
+                            onTap: () {
+                              plPlayerController.enableDanmakuMask.toggle();
+                              setState(() {});
+                            },
+                            text: '智能防挡',
+                          ),
                         ActionRowLineItem(
                           selectStatus: DanmakuOptions.danmakuStatic2Scroll,
                           onTap: () {
@@ -531,7 +541,10 @@ mixin HeaderMixin<T extends StatefulWidget> on State<T> {
         );
       },
     )?.whenComplete(
-      () => DanmakuOptions.save(plPlayerController.danmakuOpacity.value),
+      () => DanmakuOptions.save(
+        plPlayerController.danmakuOpacity.value,
+        plPlayerController.enableDanmakuMask.value,
+      ),
     );
   }
 }
