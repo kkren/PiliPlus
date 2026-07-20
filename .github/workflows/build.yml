@@ -116,6 +116,7 @@ jobs:
               with:
                   tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
                   name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref_name }}
+                  generate_release_notes: true
                   files: PiliPlus_android_*.apk
 
             - name: 上传
