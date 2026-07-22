@@ -845,9 +845,12 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                         );
                       }
                     },
-                    child: const Text(
-                      '自动',
-                      style: TextStyle(color: Colors.white, fontSize: 13),
+                    child: Text(
+                      videoDetailController.adaptiveVideoQualityLabel,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ...List.generate(
@@ -900,7 +903,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Text(
-                currentVideoQa.shortDesc,
+                videoDetailController.currentVideoQualityShortLabel,
                 style: const TextStyle(color: Colors.white, fontSize: 13),
               ),
             ),

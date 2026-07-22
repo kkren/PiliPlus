@@ -12,6 +12,7 @@ import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/models/common/audio_normalization.dart';
 import 'package:PiliPlus/models/common/super_resolution_type.dart';
+import 'package:PiliPlus/models/common/video/video_quality.dart';
 import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/user/danmaku_rule.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
@@ -94,6 +95,7 @@ class PlPlayerController with BlockConfigMixin {
 
   final RxInt buffered = RxInt(0);
   final RxString media3NetworkSpeed = ''.obs;
+  final Rxn<VideoQuality> media3VideoQuality = Rxn<VideoQuality>();
 
   final RxInt duration = RxInt(0);
   int durationInMilliseconds = 0;
@@ -861,6 +863,7 @@ class PlPlayerController with BlockConfigMixin {
     isBuffering.value = false;
     buffered.value = 0;
     media3NetworkSpeed.value = '';
+    media3VideoQuality.value = null;
     _heartDuration = 0;
     danmakuController?.clear();
 
@@ -1098,6 +1101,21 @@ class PlPlayerController with BlockConfigMixin {
   }
 
   void _handleMedia3DebugInfoChanged(Map<String, Object?> event) {
+    final videoFormat = event['videoFormat'];
+    final representationId = videoFormat is Map
+        ? videoFormat['id']?.toString()
+        : null;
+    final qualityCode = int.tryParse(
+      RegExp(r'^v\d+-(\d+)$').firstMatch(representationId ?? '')?.group(1) ??
+          '',
+    );
+    final videoQuality = qualityCode == null
+        ? null
+        : VideoQuality.tryFromCode(qualityCode);
+    if (media3VideoQuality.value != videoQuality) {
+      media3VideoQuality.value = videoQuality;
+    }
+
     final text = _formatMedia3NetworkSpeed(
       event['networkSpeedBytesPerSecond'],
     );

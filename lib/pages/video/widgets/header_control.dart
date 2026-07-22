@@ -603,9 +603,11 @@ class HeaderControlState extends State<HeaderControl>
                     },
                     leading: const Icon(Icons.play_circle_outline, size: 20),
                     title: const Text('选择画质', style: titleStyle),
-                    subtitle: Text(
-                      '当前画质 ${videoDetailCtr.currentVideoQa.value?.desc}',
-                      style: subTitleStyle,
+                    subtitle: Obx(
+                      () => Text(
+                        '当前画质 ${videoDetailCtr.currentVideoQualityLabel}',
+                        style: subTitleStyle,
+                      ),
                     ),
                   ),
                   if (videoDetailCtr.currentAudioQa != null)
@@ -1228,7 +1230,11 @@ class HeaderControlState extends State<HeaderControl>
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 20,
                       ),
-                      title: const Text('自动'),
+                      title: Obx(
+                        () => Text(
+                          videoDetailCtr.adaptiveVideoQualityLabel,
+                        ),
+                      ),
                       subtitle: const Text(
                         'Media3 DASH 自适应',
                         style: subTitleStyle,

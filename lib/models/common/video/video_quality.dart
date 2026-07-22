@@ -23,5 +23,17 @@ enum VideoQuality {
 
   static final _codeMap = {for (final i in values) i.code: i};
 
-  static VideoQuality fromCode(int code) => _codeMap[code]!;
+  static VideoQuality? tryFromCode(int code) => _codeMap[code];
+
+  static VideoQuality fromCode(int code) => tryFromCode(code)!;
+
+  String displayLabel({
+    VideoQuality? adaptiveQuality,
+    bool short = false,
+  }) {
+    final label = short ? shortDesc : desc;
+    return this == auto && adaptiveQuality != null
+        ? '$label（${adaptiveQuality.shortDesc}）'
+        : label;
+  }
 }

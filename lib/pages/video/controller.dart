@@ -137,6 +137,23 @@ class VideoDetailController extends GetxController
       Platform.isAndroid &&
       plPlayerController.playerEngine == PlayerEngine.media3;
   bool get isAdaptiveDash => currentVideoQa.value == VideoQuality.auto;
+  VideoQuality? get activeAdaptiveVideoQuality =>
+      isAdaptiveDash ? plPlayerController.media3VideoQuality.value : null;
+  String get adaptiveVideoQualityLabel => VideoQuality.auto.displayLabel(
+    adaptiveQuality: activeAdaptiveVideoQuality,
+    short: true,
+  );
+  String get currentVideoQualityLabel =>
+      currentVideoQa.value?.displayLabel(
+        adaptiveQuality: activeAdaptiveVideoQuality,
+      ) ??
+      '';
+  String get currentVideoQualityShortLabel =>
+      currentVideoQa.value?.displayLabel(
+        adaptiveQuality: activeAdaptiveVideoQuality,
+        short: true,
+      ) ??
+      '';
   Duration? defaultST;
   Duration? playedTime;
   String get playedTimePos {
