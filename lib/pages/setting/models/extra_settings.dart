@@ -3,7 +3,8 @@ import 'dart:math' show max;
 
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/common/widgets/dialog/simple_dialog_option.dart';
-import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
+import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart'
+    show RefreshIndicator, displacement, refreshDragExtent;
 import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recognizer.dart'
     show deviceTouchSlop, touchSlopH;
 import 'package:PiliPlus/common/widgets/image_grid/image_grid_view.dart'
@@ -46,7 +47,7 @@ import 'package:PiliPlus/utils/update.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:flutter/material.dart' hide RefreshIndicator;
+import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -246,15 +247,10 @@ List<SettingsModel> get extraSettings => [
     leading: const Icon(Icons.pan_tool_alt_outlined),
   ),
   NormalModel(
-    title: '刷新滑动距离',
-    leading: const Icon(Icons.refresh),
-    getSubtitle: () => '当前滑动距离: ${Pref.refreshDragPercentage}x',
-    onTap: _showRefreshDragDialog,
-  ),
-  NormalModel(
     title: '刷新指示器高度',
     leading: const Icon(Icons.height),
-    getSubtitle: () => '当前指示器高度: ${Pref.refreshDisplacement}',
+    getSubtitle: () =>
+        '当前指示器高度: ${Pref.refreshDisplacement}, 刷新滑动距离: $refreshDragExtent',
     onTap: _showRefreshDialog,
   ),
   const SwitchModel(
@@ -561,6 +557,12 @@ List<SettingsModel> get extraSettings => [
     leading: const Icon(Icons.whatshot_outlined),
     getSubtitle: () => '当前优先展示「${Pref.replySortType.title}」',
     onTap: _showReplySortDialog,
+  ),
+  NormalModel(
+    title: '二级评论展示',
+    leading: const Icon(Icons.subdirectory_arrow_right_outlined),
+    getSubtitle: () => '当前优先展示「${Pref.reply2SortType.title}」',
+    onTap: _showReply2SortDialog,
   ),
   NormalModel(
     title: '动态展示',
@@ -921,29 +923,6 @@ void _showTouchSlopDialog(BuildContext context, VoidCallback setState) {
   );
 }
 
-Future<void> _showRefreshDragDialog(
-  BuildContext context,
-  VoidCallback setState,
-) async {
-  final res = await showDialog<double>(
-    context: context,
-    builder: (context) => SliderDialog(
-      title: const Text('刷新滑动距离'),
-      min: 0.1,
-      max: 0.5,
-      divisions: 8,
-      precise: 2,
-      value: Pref.refreshDragPercentage,
-      suffix: 'x',
-    ),
-  );
-  if (res != null) {
-    kDragContainerExtentPercentage = res;
-    await GStorage.setting.put(SettingBoxKey.refreshDragPercentage, res);
-    setState();
-  }
-}
-
 Future<void> _showRefreshDialog(
   BuildContext context,
   VoidCallback setState,
@@ -1103,6 +1082,24 @@ Future<void> _showReplySortDialog(
   );
   if (res != null) {
     await GStorage.setting.put(SettingBoxKey.replySortType, res.index);
+    setState();
+  }
+}
+
+Future<void> _showReply2SortDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  final res = await showDialog<ReplySortType>(
+    context: context,
+    builder: (context) => SelectDialog<ReplySortType>(
+      title: '二级评论展示',
+      value: Pref.reply2SortType,
+      values: ReplySortType.values.take(2).map((e) => (e, e.title)).toList(),
+    ),
+  );
+  if (res != null) {
+    await GStorage.setting.put(SettingBoxKey.reply2SortType, res.index);
     setState();
   }
 }
