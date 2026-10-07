@@ -7,7 +7,9 @@
 <div align="center">
     <h1>PiliPlus</h1>
 <div align="center">
-    
+
+中文 | [English](README.en.md)
+
 ![GitHub repo size](https://img.shields.io/github/repo-size/kkren/PiliPlus)
 ![GitHub Repo stars](https://img.shields.io/github/stars/kkren/PiliPlus)
 ![GitHub all releases](https://img.shields.io/github/downloads/kkren/PiliPlus/total)
