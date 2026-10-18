@@ -11,6 +11,7 @@ import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/player_engine.dart';
+import 'package:PiliPlus/services/thread_ripper/cdn_resolver.dart';
 import 'package:PiliPlus/utils/filtering_text.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
@@ -71,6 +72,134 @@ List<SettingsModel> get videoSettings {
       getSubtitle: () =>
           '当前使用：${VideoUtils.cdnService.desc}，部分 CDN 可能失效，如无法播放请尝试切换',
       onTap: _showCDNDialog,
+    ),
+    const SwitchModel(
+      title: '线程撕裂者',
+      subtitle: '多连接并发下载，改善海外播放卡顿；下次加载视频生效',
+      leading: Icon(Icons.speed),
+      setKey: SettingBoxKey.threadRipperEnabled,
+      defaultVal: true,
+    ),
+    const SwitchModel(
+      title: '线程撕裂者：剧集加速',
+      subtitle: '加速番剧、电影、纪录片等剧集；有数字版权保护或只能试看的剧集不加速，下次加载生效',
+      leading: Icon(Icons.movie_outlined),
+      setKey: SettingBoxKey.threadRipperEpisodeEnabled,
+      defaultVal: true,
+    ),
+    const SwitchModel(
+      title: '线程撕裂者：海外节点',
+      subtitle: '默认开启，适合在海外观看；人在大陆可关闭，改用大陆节点。自定义节点为空时生效',
+      leading: Icon(Icons.public),
+      setKey: SettingBoxKey.threadRipperOverseas,
+      defaultVal: true,
+    ),
+    NormalModel(
+      title: '线程撕裂者：并发数',
+      leading: const Icon(Icons.call_split),
+      getSubtitle: () => Pref.threadRipperAutoConcurrency
+          ? '自动（手动设为 ${Pref.threadRipperConcurrency}，自动并发数开启时不生效）'
+          : '当前 ${Pref.threadRipperConcurrency}，音视频共享连接上限；下次加载生效',
+      onTap: (context, setState) async {
+        final result = await showDialog<int>(
+          context: context,
+          builder: (context) => SelectDialog<int>(
+            title: '线程撕裂者：并发数',
+            value: Pref.threadRipperConcurrency,
+            values: Pref.threadRipperConcurrencyValues
+                .map((e) => (e, '$e'))
+                .toList(),
+          ),
+        );
+        if (result != null) {
+          await GStorage.setting.put(
+            SettingBoxKey.threadRipperConcurrency,
+            result,
+          );
+          if (context.mounted) setState();
+        }
+      },
+    ),
+    const SwitchModel(
+      title: '线程撕裂者：自动并发数（推荐）',
+      subtitle: '开播先用 16 线程，再根据卡顿和缓冲在 8–64 线程间调整；关闭时使用手动并发数，下次加载生效',
+      leading: Icon(Icons.auto_graph),
+      setKey: SettingBoxKey.threadRipperAutoConcurrency,
+      defaultVal: true,
+    ),
+    NormalModel(
+      title: '线程撕裂者：自定义节点',
+      leading: const Icon(Icons.dns_outlined),
+      getSubtitle: () => Pref.threadRipperCustomHosts.isEmpty
+          ? '未启用，使用大陆／海外节点；下次加载生效'
+          : '只使用 ${Pref.threadRipperCustomHosts.length} 个自定义节点；下次加载生效',
+      onTap: (context, setState) async {
+        var input = Pref.threadRipperCustomHosts.join('\n');
+        final form = GlobalKey<FormState>();
+        final result = await showDialog<List<String>>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('线程撕裂者：自定义节点'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: form,
+                child: TextFormField(
+                  initialValue: input,
+                  minLines: 3,
+                  maxLines: 8,
+                  onChanged: (value) => input = value,
+                  decoration: const InputDecoration(
+                    hintText: 'upos-sz-mirroraliov.bilivideo.com',
+                    helperText: '每行一个 B站媒体节点，最多 32 个。\n清空恢复大陆／海外模式。',
+                  ),
+                  validator: (value) {
+                    final hosts = (value ?? '')
+                        .split(RegExp(r'[\s,，]+'))
+                        .where((s) => s.isNotEmpty)
+                        .toList();
+                    if (hosts.length > 32) return '最多添加 32 个节点';
+                    if (hosts.any(
+                      (host) => RipperCdnResolver.normalizeHost(host) == null,
+                    )) {
+                      return '请输入有效的 B站媒体服务器地址';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () {
+                  if (form.currentState!.validate()) {
+                    Navigator.pop(
+                      context,
+                      input
+                          .split(RegExp(r'[\s,，]+'))
+                          .map(RipperCdnResolver.normalizeHost)
+                          .whereType<String>()
+                          .toSet()
+                          .toList(),
+                    );
+                  }
+                },
+                child: const Text('保存'),
+              ),
+            ],
+          ),
+        );
+        if (result != null) {
+          await GStorage.setting.put(
+            SettingBoxKey.threadRipperCustomHosts,
+            result,
+          );
+          if (context.mounted) setState();
+        }
+      },
     ),
     NormalModel(
       title: '直播 CDN 设置',

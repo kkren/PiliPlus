@@ -150,3 +150,13 @@ pili_release.json
 dist
 
 test*
+# Keep the BTR regression suite and upstream comparison fixtures in git.
+!/test/
+/test/*
+!/test/thread_ripper_test.dart
+!/test/thread_ripper_auto_test.dart
+!/test/thread_ripper_dash_test.dart
+!/test/fixtures/
+/test/fixtures/*
+!/test/fixtures/ripper_*.json
+!/tool/test_thread_ripper.sh

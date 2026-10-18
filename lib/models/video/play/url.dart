@@ -57,6 +57,8 @@ class PlayUrlModel {
   String? curLanguage;
   Language? language;
   List<SegmentItemModel>? clipInfoList;
+  bool isDrm = false;
+  bool isPreview = false;
 
   int findAvailableVideoQuality(int preferredQuality) {
     final curHighestVideoQa = dash!.video!.first.quality.code;
@@ -89,7 +91,12 @@ class PlayUrlModel {
     return best;
   }
 
+  static bool _flag(Object? value) =>
+      value == true || (value is num && value != 0) || value == '1';
+
   PlayUrlModel.fromJson(Map<String, dynamic> json) {
+    isDrm = _flag(json['is_drm']);
+    isPreview = _flag(json['is_preview']);
     from = json['from'];
     result = json['result'];
     message = json['message'];

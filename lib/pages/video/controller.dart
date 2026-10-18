@@ -813,6 +813,10 @@ class VideoDetailController extends GetxController
       minBufferTime: data.dash?.minBufferTime,
       videoItems: adaptiveVideos,
       audioItem: audioItem,
+      resolveUrl: (item) => VideoUtils.getCdnUrl(
+        item.playUrls,
+        isAudio: item is AudioItem,
+      ),
     );
     audioUrl = null;
     return true;
@@ -866,6 +870,11 @@ class VideoDetailController extends GetxController
     return null;
   }
 
+  bool get _ripperAllowed =>
+      !data.isDrm &&
+      !data.isPreview &&
+      (videoType != VideoType.pgc || Pref.threadRipperEpisodeEnabled);
+
   Future<void> playerInit({
     bool? autoplay,
     bool autoFullScreenFlag = false,
@@ -884,6 +893,47 @@ class VideoDetailController extends GetxController
           : NetworkSource(
               videoSource: videoUrl!,
               audioSource: audioUrl,
+              videoCandidates:
+                  !isAdaptiveDash &&
+                      data.dash != null &&
+                      _ripperAllowed &&
+                      videoUrl == VideoUtils.getCdnUrl(firstVideo.playUrls)
+                  ? firstVideo.playUrls.toList()
+                  : null,
+              audioCandidates: _ripperAllowed
+                  ? data.dash?.audio
+                        ?.where(
+                          (item) =>
+                              item.id == currentAudioQa?.code &&
+                              audioUrl ==
+                                  VideoUtils.getCdnUrl(
+                                    item.playUrls,
+                                    isAudio: true,
+                                  ),
+                        )
+                        .firstOrNull
+                        ?.playUrls
+                        .toList()
+                  : null,
+              dashSourceBuilder: isAdaptiveDash && _ripperAllowed
+                  ? (resolve) => DashMpdUtils.buildDataUri(
+                      duration: data.timeLength == null
+                          ? data.dash?.duration == null
+                                ? null
+                                : Duration(seconds: data.dash!.duration!)
+                          : Duration(milliseconds: data.timeLength!),
+                      minBufferTime: data.dash?.minBufferTime,
+                      videoItems: _adaptiveVideosForFormat(
+                        data.dash!.video!,
+                        currentDecodeFormats,
+                      ),
+                      audioItem: data.dash?.audio
+                          ?.where((item) => item.id == currentAudioQa?.code)
+                          .firstOrNull,
+                      resolveUrl: (item) =>
+                          resolve(item.playUrls, item is AudioItem),
+                    )
+                  : null,
               sourceType: isAdaptiveDash
                   ? PlPlayerSourceType.dash
                   : PlPlayerSourceType.media,

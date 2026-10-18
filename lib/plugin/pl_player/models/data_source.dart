@@ -18,8 +18,20 @@ sealed class DataSource {
   });
 }
 
+// Rebuilds an adaptive manifest using proxy URLs for every representation.
+typedef DashSourceBuilder = String Function(
+  String Function(Iterable<String> urls, bool isAudio) resolve,
+);
+
 class NetworkSource extends DataSource {
+  final List<String>? videoCandidates;
+  final List<String>? audioCandidates;
+  final DashSourceBuilder? dashSourceBuilder;
+
   NetworkSource({
+    this.videoCandidates,
+    this.audioCandidates,
+    this.dashSourceBuilder,
     required super.videoSource,
     required super.audioSource,
     super.sourceType,

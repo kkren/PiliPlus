@@ -35,6 +35,7 @@
 
 - [x] 新增 Android 实验性 Media3 播放后端，可在设置中切换 MediaKit / Media3。
 - [x] Media3 后端加载时显示网络速度。
+- [x] 集成[线程撕裂者下载加速](docs/thread-ripper.md)，支持 MediaKit / Media3、自动画质、多节点与自适应并发；在音视频设置中调整，默认开启海外节点。
 - [x] 启用预测性返回手势。
 - [ ] 哔哩必连投屏
 
@@ -70,6 +71,9 @@
 - [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
 - [flutter_meedu_videoplayer](https://github.com/zezo357/flutter_meedu_videoplayer)
 - [media-kit](https://github.com/media-kit/media-kit)
+- [Bilibili-thread-ripper](https://github.com/MrTangLuyao/Bilibili-thread-ripper)
+- [lemonteaau/PiliPlus](https://github.com/lemonteaau/PiliPlus)（原生下载层移植参考）
+- [nishuodedui1145-del/PiliPlus](https://github.com/nishuodedui1145-del/PiliPlus)（集成参考）
 - [dio](https://pub.dev/packages/dio)
 - [预测性返回手势](https://github.com/Starfallan/PiliNara)
 - 等等

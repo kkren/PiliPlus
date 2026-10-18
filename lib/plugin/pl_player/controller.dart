@@ -33,6 +33,8 @@ import 'package:PiliPlus/plugin/pl_player/models/video_fit_type.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/danmaku_options.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/services/service_locator.dart';
+import 'package:PiliPlus/services/thread_ripper/auto_concurrency.dart';
+import 'package:PiliPlus/services/thread_ripper/range_proxy.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/android/android_helper.dart';
 import 'package:PiliPlus/utils/android/bindings.g.dart';
@@ -850,6 +852,64 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
   }
 
+  RipperRangeProxy? _ripperProxy;
+  final _ripperAutoConcurrency = RipperAutoConcurrency();
+  int _ripperGeneration = 0;
+  bool _ripperRestarting = false;
+
+  Future<DataSource?> _prepareRipperSource(DataSource source) async {
+    final generation = ++_ripperGeneration;
+    _ripperProxy?.close();
+    _ripperProxy = null;
+    _ripperRestarting = true;
+    if (isLive ||
+        source is! NetworkSource ||
+        !Pref.threadRipperEnabled ||
+        (source.videoCandidates?.isNotEmpty != true &&
+            source.dashSourceBuilder == null)) {
+      return source;
+    }
+
+    final proxy = RipperRangeProxy(
+      concurrency: Pref.threadRipperConcurrency,
+      overseas: Pref.threadRipperOverseas,
+      customHosts: Pref.threadRipperCustomHosts,
+      autoConcurrency: Pref.threadRipperAutoConcurrency
+          ? _ripperAutoConcurrency
+          : null,
+      supersedeTrackRequests: playerEngine != PlayerEngine.media3,
+      userAgent: BrowserUa.pc,
+    );
+    _ripperProxy = proxy;
+    try {
+      await proxy.start();
+      if (generation != _ripperGeneration || _playerCount == 0) {
+        proxy.close();
+        return null;
+      }
+      final video =
+          source.dashSourceBuilder?.call(
+            (urls, isAudio) => proxy.register(urls, isAudio: isAudio),
+          ) ??
+          proxy.register(source.videoCandidates!);
+      final audio =
+          source.audioSource?.isNotEmpty == true &&
+              source.audioCandidates?.isNotEmpty == true
+          ? proxy.register(source.audioCandidates!, isAudio: true)
+          : source.audioSource;
+      return NetworkSource(
+        videoSource: video,
+        audioSource: audio,
+        sourceType: source.sourceType,
+      );
+    } catch (_) {
+      proxy.close();
+      if (generation != _ripperGeneration || _playerCount == 0) return null;
+      _ripperProxy = null;
+      return source;
+    }
+  }
+
   String? shadersDirPath;
   Future<String> get copyShadersToExternalDirectory async {
     if (shadersDirPath != null) {
@@ -976,6 +1036,10 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     _heartDuration = 0;
     danmakuController?.clear();
 
+    final prepared = await _prepareRipperSource(dataSource);
+    if (prepared == null) return;
+    dataSource = prepared;
+
     if (playerEngine == PlayerEngine.media3 && Platform.isAndroid) {
       return _createMedia3Controller(dataSource, seekTo);
     }
@@ -1069,6 +1133,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   Future<void>? refreshPlayer() {
+    _ripperRestarting = true;
     if (dataSource is FileSource) {
       return null;
     }
@@ -1145,6 +1210,13 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   void _handlePositionChanged(Duration event) {
+    final player = _videoPlayerController;
+    final ahead = player?.state.buffer ?? Duration(seconds: buffered.value);
+    _ripperProxy?.autoConcurrency?.buffer(
+      (ahead - event).inMilliseconds / 1000,
+      isCurrentPlayerPlaying && !_ripperRestarting,
+      cacheFull: () => player?.getProperty('demuxer-cache-idle') == 'yes',
+    );
     final seconds = event.inSeconds;
     if (seconds != position.value) {
       if (seconds == 0 && playerStatus.isPlaying) {
@@ -1171,6 +1243,14 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
   }
 
   void _handleBufferingChanged(bool buffering) {
+    if (buffering &&
+        !isBuffering.value &&
+        !_ripperRestarting &&
+        isCurrentPlayerPlaying &&
+        positionInMilliseconds > 0) {
+      _ripperProxy?.autoConcurrency?.stall();
+    }
+    if (!buffering) _ripperRestarting = false;
     isBuffering.value = buffering;
     if (!playerStatus.isCompleted) {
       _stopWakeLockTimer();
@@ -1228,6 +1308,8 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       return;
     }
     if (event.startsWith("Failed to open https://") ||
+        event.startsWith("Failed to open http://127.0.0.1:") ||
+        event.startsWith("Can not open external file http://127.0.0.1:") ||
         event.startsWith("Can not open external file https://") ||
         event.startsWith('tcp: ffurl_read returned ')) {
       EasyThrottle.throttle(
@@ -1353,6 +1435,7 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
       await _videoPlayerController?.stream.buffer.first;
     }
     danmakuController?.clear();
+    _ripperRestarting = true;
     try {
       await (_media3PlayerController?.seek(position) ??
           _videoPlayerController?.seek(position));
@@ -1891,6 +1974,9 @@ class PlPlayerController with BlockConfigMixin, AudioNormalizationMixin {
     }
 
     _playerCount = 0;
+    _ripperGeneration++;
+    _ripperProxy?.close();
+    _ripperProxy = null;
     if (removeSafeArea) {
       showSystemBar();
     }

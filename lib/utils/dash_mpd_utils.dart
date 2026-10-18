@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:PiliPlus/models/video/play/url.dart';
-import 'package:PiliPlus/utils/video_utils.dart';
 
 abstract final class DashMpdUtils {
   static String buildDataUri({
@@ -9,6 +8,7 @@ abstract final class DashMpdUtils {
     required double? minBufferTime,
     required Iterable<VideoItem> videoItems,
     required AudioItem? audioItem,
+    required String Function(BaseItem item) resolveUrl,
   }) {
     final buffer = StringBuffer()
       ..writeln('<?xml version="1.0" encoding="UTF-8"?>')
@@ -23,8 +23,9 @@ abstract final class DashMpdUtils {
         ' mediaPresentationDuration="${_durationFromDuration(presentationDuration)}"',
       );
     }
-    buffer.writeln('>');
-    buffer.write('  <Period');
+    buffer
+      ..writeln('>')
+      ..write('  <Period');
     if (presentationDuration != null && presentationDuration > Duration.zero) {
       buffer.write(
         ' duration="${_durationFromDuration(presentationDuration)}"',
@@ -32,9 +33,9 @@ abstract final class DashMpdUtils {
     }
     buffer.writeln('>');
 
-    _writeVideoAdaptationSet(buffer, videoItems);
+    _writeVideoAdaptationSet(buffer, videoItems, resolveUrl);
     if (audioItem != null && audioItem.playUrls.isNotEmpty) {
-      _writeAudioAdaptationSet(buffer, audioItem);
+      _writeAudioAdaptationSet(buffer, audioItem, resolveUrl);
     }
 
     buffer
@@ -52,6 +53,7 @@ abstract final class DashMpdUtils {
   static void _writeVideoAdaptationSet(
     StringBuffer buffer,
     Iterable<VideoItem> items,
+    String Function(BaseItem item) resolveUrl,
   ) {
     final representations = items.where((item) => item.playUrls.isNotEmpty);
     buffer.writeln(
@@ -63,7 +65,7 @@ abstract final class DashMpdUtils {
       final codecs = item.codecs;
       final mimeType = item.mimeType ?? 'video/mp4';
       buffer.write(
-        '      <Representation id="${_attr('v${index++}-${item.id ?? 0}')}" '
+        '      <Representation id="${_attr('v${index++}-${item.id}')}" '
         'mimeType="${_attr(mimeType)}" '
         'bandwidth="${item.bandWidth ?? 1}"',
       );
@@ -81,7 +83,7 @@ abstract final class DashMpdUtils {
       buffer.writeln('>');
       _writeBaseUrlAndSegmentBase(
         buffer,
-        url: VideoUtils.getCdnUrl(item.playUrls),
+        url: resolveUrl(item),
         item: item,
       );
       buffer.writeln('      </Representation>');
@@ -89,7 +91,11 @@ abstract final class DashMpdUtils {
     buffer.writeln('    </AdaptationSet>');
   }
 
-  static void _writeAudioAdaptationSet(StringBuffer buffer, AudioItem item) {
+  static void _writeAudioAdaptationSet(
+    StringBuffer buffer,
+    AudioItem item,
+    String Function(BaseItem item) resolveUrl,
+  ) {
     buffer.writeln(
       '    <AdaptationSet id="1" contentType="audio" '
       'segmentAlignment="true" subsegmentAlignment="true">',
@@ -97,26 +103,28 @@ abstract final class DashMpdUtils {
     final codecs = item.codecs;
     final mimeType = item.mimeType ?? 'audio/mp4';
     buffer.write(
-      '      <Representation id="${_attr('a-${item.id ?? 0}')}" '
+      '      <Representation id="${_attr('a-${item.id}')}" '
       'mimeType="${_attr(mimeType)}" '
       'bandwidth="${item.bandWidth ?? 1}"',
     );
     if (codecs?.isNotEmpty == true) {
       buffer.write(' codecs="${_attr(codecs!)}"');
     }
-    buffer.writeln('>');
-    buffer.writeln(
-      '        <AudioChannelConfiguration '
-      'schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" '
-      'value="2"/>',
-    );
+    buffer
+      ..writeln('>')
+      ..writeln(
+        '        <AudioChannelConfiguration '
+        'schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" '
+        'value="2"/>',
+      );
     _writeBaseUrlAndSegmentBase(
       buffer,
-      url: VideoUtils.getCdnUrl(item.playUrls, isAudio: true),
+      url: resolveUrl(item),
       item: item,
     );
-    buffer.writeln('      </Representation>');
-    buffer.writeln('    </AdaptationSet>');
+    buffer
+      ..writeln('      </Representation>')
+      ..writeln('    </AdaptationSet>');
   }
 
   static void _writeBaseUrlAndSegmentBase(
@@ -147,7 +155,7 @@ abstract final class DashMpdUtils {
 
   static String _duration(num seconds) {
     var value = seconds.toStringAsFixed(seconds % 1 == 0 ? 0 : 3);
-    value = value.replaceFirst(RegExp(r'\.?0+$'), '');
+    if (value.contains('.')) value = value.replaceFirst(RegExp(r'\.?0+$'), '');
     return 'PT${value}S';
   }
 

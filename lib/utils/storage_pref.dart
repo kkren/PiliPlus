@@ -282,6 +282,35 @@ abstract final class Pref {
     return CDNService.backupUrl;
   }
 
+  static bool get threadRipperEnabled =>
+      _setting.get(SettingBoxKey.threadRipperEnabled, defaultValue: true);
+  // 剧集加速 (upstream 2026.10.8.1): on unless switched off.
+  static bool get threadRipperEpisodeEnabled => _setting.get(
+    SettingBoxKey.threadRipperEpisodeEnabled,
+    defaultValue: true,
+  );
+  // Match the overseas defaults of the reference native port.
+  static bool get threadRipperOverseas =>
+      _setting.get(SettingBoxKey.threadRipperOverseas, defaultValue: true);
+  static bool get threadRipperAutoConcurrency => _setting.get(
+    SettingBoxKey.threadRipperAutoConcurrency,
+    defaultValue: true,
+  );
+  static List<String> get threadRipperCustomHosts => List<String>.from(
+    _setting.get(
+      SettingBoxKey.threadRipperCustomHosts,
+      defaultValue: <String>[],
+    ),
+  );
+  static const threadRipperConcurrencyValues = [4, 8, 16, 32, 64, 128];
+  static int get threadRipperConcurrency {
+    final value = _setting.get(
+      SettingBoxKey.threadRipperConcurrency,
+      defaultValue: 8,
+    );
+    return threadRipperConcurrencyValues.contains(value) ? value as int : 8;
+  }
+
   static String get banWordForRecommend =>
       _setting.get(SettingBoxKey.banWordForRecommend, defaultValue: '');
 
