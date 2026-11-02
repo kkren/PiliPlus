@@ -4,6 +4,7 @@ import 'package:PiliPlus/common/widgets/gesture/horizontal_drag_gesture_recogniz
     show deviceTouchSlop;
 import 'package:PiliPlus/common/widgets/pair.dart';
 import 'package:PiliPlus/http/constants.dart';
+import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/models/common/bar_hide_type.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliPlus/models/common/dynamic/dynamics_type.dart';
@@ -33,6 +34,8 @@ import 'package:PiliPlus/plugin/pl_player/models/fullscreen_mode.dart';
 import 'package:PiliPlus/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/player_engine.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
+import 'package:PiliPlus/services/bili_roaming/config.dart';
+import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/device_utils.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
 import 'package:PiliPlus/utils/global_data.dart';
@@ -49,6 +52,20 @@ import 'package:hive_ce/hive.dart';
 import 'package:material_ui/material_ui.dart';
 
 abstract final class Pref {
+  static BiliRoamingConfig get biliRoaming => BiliRoamingConfig(
+    enabled: _setting.get(
+      SettingBoxKey.biliRoamingEnabled,
+      defaultValue: false,
+    ),
+    server: _setting.get(SettingBoxKey.biliRoamingServer, defaultValue: ''),
+    area: _setting.get(SettingBoxKey.biliRoamingArea, defaultValue: 'hk'),
+    force: _setting.get(SettingBoxKey.biliRoamingForce, defaultValue: false),
+    sendHeaders: _setting.get(
+      SettingBoxKey.biliRoamingHeaders,
+      defaultValue: true,
+    ),
+    accessKeyProvider: () => Accounts.get(AccountType.video).accessKey,
+  );
   static final Box _setting = GStorage.setting;
   static final Box _video = GStorage.video;
   static final Box _localCache = GStorage.localCache;

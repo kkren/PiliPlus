@@ -44,7 +44,9 @@ final class VideoQuality extends BaseQuality {
 
   static final _codeMap = {for (final i in values) i.code: i};
 
-  VideoQuality.fromId(int id, String idStr) : shortDesc = idStr, super(id, idStr);
+  VideoQuality.fromId(int id, String idStr)
+    : shortDesc = idStr,
+      super(id, idStr);
 
   factory VideoQuality.fromCode(int code) =>
       _codeMap[code] ?? .fromId(code, code.toString());

@@ -2,9 +2,11 @@ import 'package:PiliPlus/models/common/search/search_type.dart';
 import 'package:get/get.dart';
 
 class SearchResultController extends GetxController {
+  SearchResultController({int? tabCount})
+    : count = List.filled(tabCount ?? SearchType.actives.length, -1).obs;
   String keyword = Get.parameters['keyword'] ?? '';
 
-  RxList<int> count = List.filled(SearchType.actives.length, -1).obs;
+  final RxList<int> count;
 
   RxInt toTopIndex = (-1).obs;
 

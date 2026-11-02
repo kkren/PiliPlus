@@ -160,3 +160,10 @@ test*
 /test/fixtures/*
 !/test/fixtures/ripper_*.json
 !/tool/test_thread_ripper.sh
+
+# BiliRoaming protocol and settings regression tests.
+!/test/http/
+/test/http/*
+!/test/http/bili_roaming_test.dart
+!/test/bili_roaming_dialog_test.dart
+!/tool/test_bili_roaming.sh

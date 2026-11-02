@@ -1,6 +1,11 @@
 // ignore_for_file: constant_identifier_names
 
 abstract final class SettingBoxKey {
+  static const biliRoamingEnabled = 'biliRoamingEnabled';
+  static const biliRoamingServer = 'biliRoamingServer';
+  static const biliRoamingArea = 'biliRoamingArea';
+  static const biliRoamingForce = 'biliRoamingForce';
+  static const biliRoamingHeaders = 'biliRoamingHeaders';
   static const threadRipperEnabled = 'threadRipperEnabled';
   static const threadRipperEpisodeEnabled = 'threadRipperEpisodeEnabled';
   static const threadRipperOverseas = 'threadRipperOverseas';

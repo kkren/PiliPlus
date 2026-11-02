@@ -64,13 +64,14 @@ List<SettingsModel> get playSettings => [
       },
       onTap: audioNormalization,
     ),
-  if (!_isMedia3Player) NormalModel(
-    title: '超分辨率',
-    leading: const Icon(Icons.stay_current_landscape_outlined),
-    getSubtitle: () =>
-        '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 auto-copy',
-    onTap: _showSuperResolutionDialog,
-  ),
+  if (!_isMedia3Player)
+    NormalModel(
+      title: '超分辨率',
+      leading: const Icon(Icons.stay_current_landscape_outlined),
+      getSubtitle: () =>
+          '当前:「${Pref.superResolutionType.label}」\n默认设置对番剧生效, 其他视频默认关闭\n超分辨率需要启用硬件解码, 若启用硬件解码后仍然不生效, 尝试切换硬件解码器为 auto-copy',
+      onTap: _showSuperResolutionDialog,
+    ),
   const SwitchModel(
     title: '自动播放',
     subtitle: '进入详情页自动播放',
@@ -155,12 +156,13 @@ List<SettingsModel> get playSettings => [
     setKey: SettingBoxKey.enableShrinkVideoSize,
     defaultVal: true,
   ),
-  if (!_isMedia3Player) const SwitchModel(
-    title: '启用拖拽字幕调整底部边距',
-    leading: Icon(MdiIcons.dragVariant),
-    setKey: SettingBoxKey.enableDragSubtitle,
-    defaultVal: false,
-  ),
+  if (!_isMedia3Player)
+    const SwitchModel(
+      title: '启用拖拽字幕调整底部边距',
+      leading: Icon(MdiIcons.dragVariant),
+      setKey: SettingBoxKey.enableDragSubtitle,
+      defaultVal: false,
+    ),
   const SwitchModel(
     title: '视频页显示相关视频',
     leading: Icon(MdiIcons.motionPlayOutline),

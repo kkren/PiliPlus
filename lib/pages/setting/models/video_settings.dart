@@ -4,11 +4,13 @@ import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
+import 'package:PiliPlus/pages/setting/widgets/bili_roaming_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/player_engine.dart';
+import 'package:PiliPlus/services/bili_roaming/config.dart';
 import 'package:PiliPlus/services/thread_ripper/cdn_resolver.dart';
 import 'package:PiliPlus/utils/filtering_text.dart';
 import 'package:PiliPlus/utils/storage.dart';
@@ -63,6 +65,28 @@ List<SettingsModel> get videoSettings {
           ),
         ),
       ),
+    ),
+    NormalModel(
+      title: '哔哩漫游',
+      leading: const Icon(Icons.public),
+      getSubtitle: () => Pref.biliRoaming.enabled
+          ? '已启用 · ${BiliRoamingConfig.areas[Pref.biliRoaming.area] ?? "香港"}'
+          : '通过自定义服务端搜索和播放受地区限制的番剧',
+      onTap: (context, setState) async {
+        final config = await showDialog<BiliRoamingConfig>(
+          context: context,
+          builder: (_) => BiliRoamingDialog(config: Pref.biliRoaming),
+        );
+        if (config == null) return;
+        await GStorage.setting.putAll({
+          SettingBoxKey.biliRoamingEnabled: config.enabled,
+          SettingBoxKey.biliRoamingServer: config.server,
+          SettingBoxKey.biliRoamingArea: config.area,
+          SettingBoxKey.biliRoamingForce: config.force,
+          SettingBoxKey.biliRoamingHeaders: config.sendHeaders,
+        });
+        if (context.mounted) setState();
+      },
     ),
     NormalModel(
       title: 'CDN 设置',
@@ -297,20 +321,20 @@ List<SettingsModel> get videoSettings {
             '当前：${Pref.bufferSec}s。实际缓冲为二者最小值。对于直播流，该选项无效（此选项即mpv的--cache-secs）',
         onTap: _showBufferSecDialog,
       ),
-  NormalModel(
-    title: '直播缓冲大小',
-    leading: const Icon(Icons.storage_outlined),
-    getSubtitle: () =>
-        '当前：${Pref.liveBufferSize > 0 ? '${Pref.liveBufferSize}MB' : '跟随缓冲大小（${(Pref.bufferSize * 2).toStringAsFixed(0)}MB）'}。仅对直播流生效，小于等于0时使用缓冲大小的2倍（此选项即mpv的--demuxer-max-bytes）',
-    onTap: _showLiveBufferSizeDialog,
-  ),
-  NormalModel(
-    title: '直播缓冲时长',
-    leading: const Icon(Icons.av_timer),
-    getSubtitle: () =>
-        '当前：${Pref.liveBufferSec > 0 ? '${Pref.liveBufferSec}s' : '不限制'}。仅对直播流生效，大于0时可限制直播缓冲时长以降低延迟（此选项即mpv的--cache-secs）',
-    onTap: _showLiveBufferSecDialog,
-  ),
+      NormalModel(
+        title: '直播缓冲大小',
+        leading: const Icon(Icons.storage_outlined),
+        getSubtitle: () =>
+            '当前：${Pref.liveBufferSize > 0 ? '${Pref.liveBufferSize}MB' : '跟随缓冲大小（${(Pref.bufferSize * 2).toStringAsFixed(0)}MB）'}。仅对直播流生效，小于等于0时使用缓冲大小的2倍（此选项即mpv的--demuxer-max-bytes）',
+        onTap: _showLiveBufferSizeDialog,
+      ),
+      NormalModel(
+        title: '直播缓冲时长',
+        leading: const Icon(Icons.av_timer),
+        getSubtitle: () =>
+            '当前：${Pref.liveBufferSec > 0 ? '${Pref.liveBufferSec}s' : '不限制'}。仅对直播流生效，大于0时可限制直播缓冲时长以降低延迟（此选项即mpv的--cache-secs）',
+        onTap: _showLiveBufferSecDialog,
+      ),
       NormalModel(
         title: '自动同步',
         leading: const Icon(Icons.sync_rounded),
@@ -531,7 +555,7 @@ Future<void> _showCodecsDialog(
   final res = await showDialog<List<VideoDecodeFormatType>>(
     context: context,
     builder: (context) => OrderedMultiSelectDialog<VideoDecodeFormatType>(
-      title: '首选解码格式',
+      title: const Text('首选解码格式'),
       initValues: Pref.preferCodecs,
       values: {for (final e in VideoDecodeFormatType.values) e: e.name},
     ),
@@ -552,7 +576,7 @@ Future<void> _showCellularCodecsDialog(
   final res = await showDialog<List<VideoDecodeFormatType>>(
     context: context,
     builder: (context) => OrderedMultiSelectDialog<VideoDecodeFormatType>(
-      title: '蜂窝网络首选解码格式',
+      title: const Text('蜂窝网络首选解码格式'),
       initValues: Pref.preferCodecsCellular,
       values: {for (final e in VideoDecodeFormatType.values) e: e.name},
     ),
@@ -573,7 +597,7 @@ Future<void> _showAudioOutputDialog(
   final res = await showDialog<List<String>>(
     context: context,
     builder: (context) => OrderedMultiSelectDialog<String>(
-      title: '音频输出设备',
+      title: const Text('音频输出设备'),
       initValues: Pref.audioOutput.split(','),
       values: {
         for (final e in AudioOutput.values) e.name: e.label,
@@ -624,7 +648,7 @@ Future<void> _showHwDecDialog(
   final res = await showDialog<List<String>>(
     context: context,
     builder: (context) => OrderedMultiSelectDialog<String>(
-      title: '硬解模式',
+      title: const Text('硬解模式'),
       initValues: Pref.hardwareDecoding.split(','),
       values: {
         for (final e in HwDecType.values) e.hwdec: '${e.hwdec}\n${e.desc}',
@@ -744,5 +768,25 @@ void _showBufferSecDialog(BuildContext context, VoidCallback setState) =>
       key: SettingBoxKey.bufferSec,
       defVal: Pref.bufferSec,
       title: '缓冲时长',
+      suffix: 's',
+    );
+
+void _showLiveBufferSizeDialog(BuildContext context, VoidCallback setState) =>
+    _showDecimalDialog(
+      context,
+      setState,
+      key: SettingBoxKey.liveBufferSize,
+      defVal: Pref.liveBufferSize,
+      title: '直播缓冲大小',
+      suffix: 'MB',
+    );
+
+void _showLiveBufferSecDialog(BuildContext context, VoidCallback setState) =>
+    _showDecimalDialog(
+      context,
+      setState,
+      key: SettingBoxKey.liveBufferSec,
+      defVal: Pref.liveBufferSec,
+      title: '直播缓冲时长',
       suffix: 's',
     );

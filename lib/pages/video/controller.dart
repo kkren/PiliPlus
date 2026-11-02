@@ -768,18 +768,9 @@ class VideoDetailController extends GetxController
       return null;
     }
 
-    final List<int> audioIds = audioList.map((map) => map.id).toList();
-    int closestNumber = audioIds.findClosestTarget(
-      (e) => e <= plPlayerController.cacheAudioQa,
-      (a, b) => a > b ? a : b,
-    );
-    if (!audioIds.contains(plPlayerController.cacheAudioQa) &&
-        audioIds.any((e) => e > plPlayerController.cacheAudioQa)) {
-      closestNumber = AudioQuality.k192.code;
-    }
-    final firstAudio = audioList.firstWhere(
-      (e) => e.id == closestNumber,
-      orElse: () => audioList.first,
+    final firstAudio = VideoUtils.findTargetAudio(
+      audioList,
+      plPlayerController.cacheAudioQa,
     );
     audioUrl = VideoUtils.getCdnUrl(firstAudio.playUrls, isAudio: true);
     currentAudioQa = AudioQuality.fromCode(firstAudio.id);
@@ -1165,7 +1156,9 @@ class VideoDetailController extends GetxController
       );
       firstVideo = targetVideo;
       currentDecodeFormats = targetDecode;
-      currentVideoQa.value = VideoQuality.fromCode(targetQuality);
+      currentVideoQa.value = VideoQuality.fromFormat(targetQuality, [
+        targetFormat,
+      ]);
       _setVideoHeight();
       videoUrl = VideoUtils.getCdnUrl(firstVideo.playUrls);
 

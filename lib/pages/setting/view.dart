@@ -56,7 +56,7 @@ class _SettingPageState extends State<SettingPage> {
     ),
     _SettingsModel(
       type: .videoSetting,
-      subtitle: '画质、音质、解码、缓冲、音频输出等',
+      subtitle: '画质、音质、解码、缓冲、音频输出、哔哩漫游等',
       icon: Icon(Icons.video_settings_outlined),
     ),
     _SettingsModel(

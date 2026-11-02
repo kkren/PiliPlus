@@ -1,5 +1,6 @@
 import 'package:PiliPlus/http/api.dart';
 import 'package:PiliPlus/http/browser_ua.dart';
+import 'package:PiliPlus/http/bili_roaming.dart';
 import 'package:PiliPlus/http/init.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models/common/search/search_type.dart';
@@ -11,6 +12,7 @@ import 'package:PiliPlus/models_new/pgc/pgc_info_model/result.dart';
 import 'package:PiliPlus/models_new/search/search_rcmd/data.dart';
 import 'package:PiliPlus/models_new/search/search_trending/data.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/wbi_sign.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
@@ -154,6 +156,10 @@ abstract final class SearchHttp {
     dynamic seasonId,
     dynamic epId,
   }) async {
+    final roaming = Pref.biliRoaming;
+    Future<LoadingState<PgcInfoModel>> roam() =>
+        BiliRoamingHttp(roaming).season(seasonId: seasonId, epId: epId);
+    if (roaming.enabled && roaming.force) return roam();
     final res = await Request().get(
       Api.pgcInfo,
       queryParameters: {
@@ -162,7 +168,15 @@ abstract final class SearchHttp {
       },
     );
     if (res.data['code'] == 0) {
-      return Success(PgcInfoModel.fromJson(res.data['result']));
+      final data = PgcInfoModel.fromJson(res.data['result']);
+      if (roaming.enabled && !data.hasEpisodes) return roam();
+      return Success(data);
+    } else if (roaming.shouldFallback(
+      res.data['code'],
+      res.data['message'],
+      season: true,
+    )) {
+      return roam();
     } else {
       return Error(res.data['message']);
     }

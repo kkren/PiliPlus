@@ -91,6 +91,7 @@ class SSearchController extends GetxController
   String? hintText;
 
   int initIndex = 0;
+  String? roamingSearchArea;
 
   // uid
   final RxBool showUidBtn = false.obs;
@@ -189,7 +190,11 @@ class SSearchController extends GetxController
     Get.toNamed(
       '/searchResult',
       parameters: {'tag': tag, 'keyword': text},
-      arguments: {'initIndex': initIndex, 'fromSearch': true},
+      arguments: {
+        'initIndex': initIndex,
+        'fromSearch': true,
+        'roamingSearchArea': roamingSearchArea,
+      },
     )?.then((val) {
       searchFocusNode.requestFocus();
       if (val is bool && val) {

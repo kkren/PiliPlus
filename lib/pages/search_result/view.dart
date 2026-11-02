@@ -1,7 +1,7 @@
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart' show tabBarView;
 import 'package:PiliPlus/common/widgets/view_safe_area.dart';
-import 'package:PiliPlus/models/common/search/search_type.dart';
+import 'package:PiliPlus/models/search/search_tab.dart';
 import 'package:PiliPlus/pages/search/controller.dart';
 import 'package:PiliPlus/pages/search_panel/all/view.dart';
 import 'package:PiliPlus/pages/search_panel/article/view.dart';
@@ -10,6 +10,7 @@ import 'package:PiliPlus/pages/search_panel/pgc/view.dart';
 import 'package:PiliPlus/pages/search_panel/user/view.dart';
 import 'package:PiliPlus/pages/search_panel/video/view.dart';
 import 'package:PiliPlus/pages/search_result/controller.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:get/get.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -24,6 +25,7 @@ class _SearchResultPageState extends State<SearchResultPage>
     with SingleTickerProviderStateMixin {
   late SearchResultController _searchResultController;
   late TabController _tabController;
+  late final List<SearchResultTab> _tabs;
   final String _tag = DateTime.now().millisecondsSinceEpoch.toString();
   final bool _isFromSearch = Get.arguments?['fromSearch'] ?? false;
   SSearchController? sSearchController;
@@ -31,15 +33,20 @@ class _SearchResultPageState extends State<SearchResultPage>
   @override
   void initState() {
     super.initState();
+    _tabs = SearchResultTab.forConfig(Pref.biliRoaming);
     _searchResultController = Get.put(
-      SearchResultController(),
+      SearchResultController(tabCount: _tabs.length),
       tag: _tag,
     );
 
     _tabController = TabController(
       vsync: this,
-      initialIndex: Get.arguments?['initIndex'] ?? 0,
-      length: SearchType.actives.length,
+      initialIndex: SearchResultTab.initialIndex(
+        _tabs,
+        (Get.arguments?['initIndex'] as int?) ?? 0,
+        roamingArea: Get.arguments?['roamingSearchArea'],
+      ),
+      length: _tabs.length,
     );
 
     if (_isFromSearch) {
@@ -53,7 +60,9 @@ class _SearchResultPageState extends State<SearchResultPage>
   }
 
   void listener() {
-    sSearchController?.initIndex = _tabController.index;
+    final tab = _tabs[_tabController.index];
+    sSearchController?.initIndex = tab.type.index;
+    sSearchController?.roamingSearchArea = tab.roaming?.area;
   }
 
   @override
@@ -106,19 +115,16 @@ class _SearchResultPageState extends State<SearchResultPage>
               splashFactory: NoSplash.splashFactory,
               padding: const EdgeInsets.only(top: 4, left: 8, right: 8),
               controller: _tabController,
-              tabs: SearchType.actives
-                  .map(
-                    (item) => Obx(
-                      () {
-                        int count = _searchResultController.count[item.index];
-                        return Tab(
-                          text:
-                              '${item.label}${count != -1 ? ' ${count > 99 ? '99+' : count}' : ''}',
-                        );
-                      },
-                    ),
-                  )
-                  .toList(),
+              tabs: [
+                for (var index = 0; index < _tabs.length; index++)
+                  Obx(() {
+                    final count = _searchResultController.count[index];
+                    return Tab(
+                      text:
+                          '${_tabs[index].label}${count != -1 ? " ${count > 99 ? '99+' : count}" : ""}',
+                    );
+                  }),
+              ],
               isScrollable: true,
               indicatorWeight: 0,
               indicatorPadding: const EdgeInsets.symmetric(
@@ -153,37 +159,41 @@ class _SearchResultPageState extends State<SearchResultPage>
             Expanded(
               child: tabBarView(
                 controller: _tabController,
-                children: SearchType.actives
+                children: _tabs
+                    .asMap()
+                    .entries
                     .map(
-                      (item) => switch (item) {
+                      (entry) => switch (entry.value.type) {
                         .all => SearchAllPanel(
                           tag: _tag,
-                          searchType: item,
+                          searchType: entry.value.type,
                           keyword: _searchResultController.keyword,
                         ),
                         .video => SearchVideoPanel(
                           tag: _tag,
-                          searchType: item,
+                          searchType: entry.value.type,
                           keyword: _searchResultController.keyword,
                         ),
                         .media_bangumi || .media_ft => SearchPgcPanel(
+                          roaming: entry.value.roaming,
+                          tabIndex: entry.key,
                           tag: _tag,
-                          searchType: item,
+                          searchType: entry.value.type,
                           keyword: _searchResultController.keyword,
                         ),
                         .live_room => SearchLivePanel(
                           tag: _tag,
-                          searchType: item,
+                          searchType: entry.value.type,
                           keyword: _searchResultController.keyword,
                         ),
                         .bili_user => SearchUserPanel(
                           tag: _tag,
-                          searchType: item,
+                          searchType: entry.value.type,
                           keyword: _searchResultController.keyword,
                         ),
                         .article => SearchArticlePanel(
                           tag: _tag,
-                          searchType: item,
+                          searchType: entry.value.type,
                           keyword: _searchResultController.keyword,
                         ),
                       },

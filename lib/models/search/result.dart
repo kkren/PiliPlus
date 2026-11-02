@@ -3,7 +3,9 @@ import 'package:PiliPlus/models/horizontal_video_model.dart';
 import 'package:PiliPlus/models/model_avatar.dart';
 import 'package:PiliPlus/models/model_owner.dart';
 import 'package:PiliPlus/models/model_video.dart';
+import 'package:PiliPlus/models/search/pgc.dart';
 import 'package:PiliPlus/models/search/search_esports.dart';
+import 'package:PiliPlus/models/search/search_num_data.dart';
 import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/em.dart';
 import 'package:PiliPlus/utils/extension/iterable_ext.dart';
@@ -11,15 +13,8 @@ import 'package:PiliPlus/utils/global_data.dart';
 import 'package:PiliPlus/utils/parse_int.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 
-abstract class SearchNumData<T> {
-  SearchNumData({
-    this.numResults,
-    this.list,
-  });
-
-  int? numResults;
-  List<T>? list;
-}
+export 'package:PiliPlus/models/search/pgc.dart';
+export 'package:PiliPlus/models/search/search_num_data.dart';
 
 class SearchVideoData extends SearchNumData<SearchVideoItemModel> {
   SearchVideoData({
@@ -398,104 +393,6 @@ class SearchLiveItemModel {
     roomid = json['roomid'];
     attentions = json['attentions'];
     cateName = Em.regCate(json['cate_name']);
-  }
-}
-
-class SearchPgcData extends SearchNumData<SearchPgcItemModel> {
-  SearchPgcData({
-    super.numResults,
-    super.list,
-  });
-
-  SearchPgcData.fromJson(Map<String, dynamic> json) {
-    numResults = (json['numResults'] as num?)?.toInt();
-    list = (json['result'] as List?)
-        ?.map<SearchPgcItemModel>((e) => SearchPgcItemModel.fromJson(e))
-        .toList();
-  }
-}
-
-class SearchPgcItemModel {
-  SearchPgcItemModel({
-    this.type,
-    this.mediaId,
-    required this.title,
-    this.orgTitle,
-    this.mediaType,
-    this.cv,
-    this.staff,
-    this.seasonId,
-    this.isAvid,
-    this.hitEpids,
-    this.seasonType,
-    this.seasonTypeName,
-    this.url,
-    this.buttonText,
-    this.isFollow,
-    this.isSelection,
-    this.cover,
-    this.areas,
-    this.styles,
-    this.gotoUrl,
-    this.desc,
-    this.pubtime,
-    this.mediaMode,
-    this.mediaScore,
-    this.indexShow,
-  });
-
-  String? type;
-  int? mediaId;
-  late List<({bool isEm, String text})> title;
-  String? orgTitle;
-  int? mediaType;
-  String? cv;
-  String? staff;
-  int? seasonId;
-  bool? isAvid;
-  String? hitEpids;
-  int? seasonType;
-  String? seasonTypeName;
-  String? url;
-  String? buttonText;
-  int? isFollow;
-  int? isSelection;
-  String? cover;
-  String? areas;
-  String? styles;
-  String? gotoUrl;
-  String? desc;
-  int? pubtime;
-  int? mediaMode;
-  Map? mediaScore;
-  String? indexShow;
-
-  SearchPgcItemModel.fromJson(Map<String, dynamic> json) {
-    type = json['type'];
-    mediaId = json['media_id'];
-    title = Em.regTitle(json['title']);
-    orgTitle = json['org_title'];
-    mediaType = json['media_type'];
-    cv = json['cv'];
-    staff = json['staff'];
-    seasonId = json['season_id'];
-    isAvid = json['is_avid'];
-    hitEpids = json['hit_epids'];
-    seasonType = json['season_type'];
-    seasonTypeName = json['season_type_name'];
-    url = json['url'];
-    buttonText = json['button_text'];
-    isFollow = json['is_follow'];
-    isSelection = json['is_selection'];
-    cover = json['cover'];
-    areas = json['areas'];
-    styles = json['styles'];
-    gotoUrl = json['goto_url'];
-    desc = json['desc'];
-    pubtime = json['pubtime'];
-    mediaMode = json['media_mode'];
-    mediaScore = json['media_score'];
-    indexShow = json['index_show'];
   }
 }
 

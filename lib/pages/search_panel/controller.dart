@@ -19,7 +19,9 @@ class SearchPanelController<R extends SearchNumData<T>, T>
     required this.keyword,
     required this.searchType,
     required this.tag,
-  });
+    int? tabIndex,
+  }) : tabIndex = tabIndex ?? searchType.index;
+  final int tabIndex;
   final String tag;
   final String keyword;
   final SearchType searchType;
@@ -69,7 +71,7 @@ class SearchPanelController<R extends SearchNumData<T>, T>
     try {
       searchResultController = Get.find<SearchResultController>(tag: tag);
       _listener = searchResultController!.toTopIndex.listen((index) {
-        if (index == searchType.index) {
+        if (index == tabIndex) {
           scrollController.animToTop();
         }
       });
@@ -85,7 +87,7 @@ class SearchPanelController<R extends SearchNumData<T>, T>
   @override
   bool customHandleResponse(bool isRefresh, Success<R> response) {
     if (isRefresh) {
-      searchResultController?.count[searchType.index] =
+      searchResultController?.count[tabIndex] =
           response.response.numResults ?? 0;
     }
     return false;

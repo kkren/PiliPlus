@@ -4,6 +4,7 @@ import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show ReplyInfo;
 import 'package:PiliPlus/http/api.dart';
+import 'package:PiliPlus/http/bili_roaming.dart';
 import 'package:PiliPlus/http/browser_ua.dart';
 import 'package:PiliPlus/http/constants.dart';
 import 'package:PiliPlus/http/init.dart';
@@ -224,6 +225,19 @@ abstract final class VideoHttp {
     String? language,
     bool voiceBalance = false,
   }) async {
+    final roaming = Pref.biliRoaming;
+    Future<LoadingState<PlayUrlModel>> roam() =>
+        BiliRoamingHttp(roaming).videoUrl(
+          avid: avid,
+          bvid: bvid,
+          cid: cid,
+          qn: qn,
+          epId: epid,
+          seasonId: seasonId,
+          language: language,
+          voiceBalance: voiceBalance,
+        );
+    if (videoType == .pgc && roaming.enabled && roaming.force) return roam();
     final Map<String, dynamic> params;
     Map<String, dynamic>? data;
 
@@ -295,6 +309,9 @@ abstract final class VideoHttp {
         options: Options(method: videoType.method),
       );
 
+      if (videoType == .pgc && roaming.shouldProxyPlayback(res.data)) {
+        return await roam();
+      }
       if (res.data['code'] == 0) {
         late PlayUrlModel data;
         switch (videoType) {
@@ -330,6 +347,8 @@ abstract final class VideoHttp {
           seasonId: seasonId,
           tryLook: tryLook,
           videoType: .pgc,
+          language: language,
+          voiceBalance: voiceBalance,
         );
       }
       return Error(_parseVideoErr(res.data['code'], res.data['message']));

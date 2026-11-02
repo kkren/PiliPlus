@@ -2,11 +2,22 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:PiliPlus/models/video/play/url.dart';
+import 'package:PiliPlus/models/common/video/base_quality.dart';
 import 'package:PiliPlus/services/thread_ripper/range_proxy.dart';
 import 'package:PiliPlus/utils/dash_mpd_utils.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('automatic quality survives the upstream quality model refactor', () {
+    expect(VideoQuality.fromCode(0), VideoQuality.auto);
+    expect(
+      VideoQuality.auto.displayLabel(adaptiveQuality: VideoQuality.high1080),
+      '自动（1080P）',
+    );
+    expect(VideoQuality.fromCode(999).code, 999);
+    expect(VideoQuality.tryFromCode(999), isNull);
+  });
+
   test(
     'adaptive DASH preserves representations and indexes through the proxy',
     () async {
@@ -45,7 +56,7 @@ void main() {
               'initialization': '0-999',
               'index_range': '1000-1999',
             },
-          }),
+          }, null),
       ];
       final audio = AudioItem.fromJson({
         'id': 30280,
