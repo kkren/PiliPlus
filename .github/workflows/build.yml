@@ -55,6 +55,26 @@ jobs:
                   flutter-version-file: pubspec.yaml
                   cache: true
 
+            - name: 安装 NDK（失败重试）
+              shell: bash
+              run: |
+                  ndk_version=$(sed -n 's/.*val ndkVersion: String = "\([^"]*\)".*/\1/p' "$FLUTTER_ROOT/packages/flutter_tools/gradle/src/main/kotlin/FlutterExtension.kt")
+                  [[ "$ndk_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+                  sdk_root="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+                  ndk_dir="$sdk_root/ndk/$ndk_version"
+                  for attempt in 1 2 3; do
+                    if "$sdk_root/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$ndk_version" && [[ -f "$ndk_dir/source.properties" ]]; then
+                      exit 0
+                    fi
+                    if [[ "$attempt" == 3 ]]; then
+                      echo "::error::NDK $ndk_version 安装失败，已尝试 3 次"
+                      exit 1
+                    fi
+                    echo "::warning::NDK 安装失败，清除残留下载后重试（$attempt/3）"
+                    rm -rf -- "$sdk_root/.temp" "$ndk_dir"
+                    sleep 5
+                  done
+
             - name: Apply Patch
               shell: pwsh
               run: lib/scripts/patch.ps1 android
