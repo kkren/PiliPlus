@@ -1,8 +1,10 @@
-## PiliPlus v2.2.0
+## PiliPlus v2.2.0.1
 
-- Merge upstream 2.2.0 and subsequent fixes through d635f20e2.
-- Include BiliRoaming regional episode playback and search, with configurable servers and the current video account's Access Key resolved for each request.
-- Include native Bilibili Thread Ripper acceleration: concurrent range downloads, overseas/CDN selection, automatic concurrency, and episode support.
-- Retain Android Media3 playback and adaptive DASH quality selection.
+- 同步上游 v2.2.0.1 及后续修复。
+- 修复番剧、课程播放接口兼容性，支持 DRM 剧集切换官方备用接口。
+- 修复番剧季度列表为空时的异常，调整评论分页。
+- 弹幕跳转提前 3 秒定位，便于查看上下文。
+- 修复 macOS 隐藏标题栏后无法拖动窗口、ChromeOS 屏幕方向处理问题。
+- 保留哔哩漫游、Bilibili 线程撕裂者、Media3 播放和自动画质；适配上游播放接口变更。
 
-BiliRoaming setup: see docs/bili_roaming.md. Thread Ripper settings are under video settings.
+哔哩漫游与线程撕裂者均可在「设置 → 视频设置」中配置。

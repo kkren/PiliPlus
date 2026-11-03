@@ -61,6 +61,8 @@ class BiliRoamingConfig {
         if (dialog is Map && dialog['type'] == 'area_limit') return true;
       }
     }
+    // DRM 响应交由官方备用接口处理。
+    if (result['arc'] case {'is_drm': true}) return false;
     return result['video_info'] == null;
   }
 

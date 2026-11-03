@@ -73,7 +73,7 @@ void main() {
   test(
     'new PGC playback envelope preserves direct playback and region fallback',
     () {
-      final config = BiliRoamingConfig(enabled: true);
+      const config = BiliRoamingConfig(enabled: true);
       expect(
         config.shouldProxyPlayback({
           'code': 0,
@@ -94,6 +94,31 @@ void main() {
       );
     },
   );
+
+  test('DRM playback keeps the official fallback unless region-restricted', () {
+    const config = BiliRoamingConfig(enabled: true);
+    for (final envelope in ['data', 'result']) {
+      expect(
+        config.shouldProxyPlayback({
+          'code': 0,
+          envelope: {
+            'arc': {'is_drm': true},
+          },
+        }),
+        isFalse,
+      );
+      expect(
+        config.shouldProxyPlayback({
+          'code': 0,
+          envelope: {
+            'arc': {'is_drm': true},
+            'not_playable_reason': {'code': -10403, 'message': '区域限制'},
+          },
+        }),
+        isTrue,
+      );
+    }
+  });
 
   test('automatic key follows refresh, account changes, and logout', () async {
     String? accountKey = 'first-key';
