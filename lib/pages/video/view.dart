@@ -786,7 +786,6 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
               } else if (plPlayerController!.isCurrentPlayerCompleted) {
                 await plPlayerController!.seekTo(
                   Duration.zero,
-                  isSeek: false,
                 );
                 plPlayerController!.play();
               } else {

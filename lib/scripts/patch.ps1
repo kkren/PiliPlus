@@ -88,6 +88,8 @@ $SliverPatch = "lib/scripts/sliver.patch"
 
 $RefreshIndicatorPatch = "lib/scripts/refresh_indicator.patch"
 
+$MediaQueryPatch = "lib/scripts/media_query.patch"
+
 # TODO: remove
 # https://github.com/flutter/flutter/issues/124078
 # https://github.com/flutter/flutter/pull/183261
@@ -131,7 +133,7 @@ $patches = @($ModalBarrierPatch, $TextSelectionPatch, $MouseCursorPatch,
             $ScrollPositionPatch, $ScrollablePatch, $ScrollableGesturePatch,
             $DraggableScrollableSheetPatch, $ScaffoldPatch, $TextPatch,
             $TextPainterPatch, $SliverPatch, $RefreshIndicatorPatch,
-            $DoubleTapGesturePatch)
+            $DoubleTapGesturePatch, $MediaQueryPatch)
 
 switch ($platform.ToLower()) {
     "android" {
@@ -234,26 +236,23 @@ switch ($platform.ToLower()) {
     default {}
 }
 
-try {
-    $MaterialUiDir = Get-ChildItem "$PubCacheDir/hosted/pub.dev" -Directory |
-        Where-Object { $_.Name -like "material_ui-*" } |
-        Select-Object -Last 1
+function Get-LockedUiDirectory([string]$PackageName) {
+    $lock = Get-Content "$env:GITHUB_WORKSPACE/pubspec.lock" -Raw
+    $pattern = '(?ms)^  ' + [regex]::Escape($PackageName) + ':\r?\n.*?^    version: "([^"]+)"'
+    $version = [regex]::Match($lock, $pattern).Groups[1].Value
+    if (-not $version) { throw "$PackageName version not found in pubspec.lock" }
+    return "$PubCacheDir/hosted/pub.dev/$PackageName-$version"
+}
 
-    if ($MaterialUiDir) {
-        Remove-Item -Path $MaterialUiDir.FullName -Recurse -Force
-    }
-} catch {
+$MaterialUiPath = Get-LockedUiDirectory "material_ui"
+if (Test-Path -LiteralPath $MaterialUiPath) {
+    Remove-Item -LiteralPath $MaterialUiPath -Recurse -Force
 }
 
 flutter pub get
+if ($LASTEXITCODE -ne 0) { throw "flutter pub get failed: $LASTEXITCODE" }
 
-$MaterialUiDir = Get-ChildItem "$PubCacheDir/hosted/pub.dev" -Directory |
-    Where-Object { $_.Name -like "material_ui-*" } |
-    Select-Object -Last 1
-
-if (-not $MaterialUiDir) {
-    throw "material_ui package not found in pub cache"
-}
+$MaterialUiDir = Get-Item -LiteralPath $MaterialUiPath -ErrorAction Stop
 
 Write-Host "material_ui dir: $($MaterialUiDir.FullName)"
 
@@ -292,13 +291,7 @@ switch ($platform.ToLower()) {
     default {}
 }
 
-$CupertinoUiDir = Get-ChildItem "$PubCacheDir/hosted/pub.dev" -Directory |
-    Where-Object { $_.Name -like "cupertino_ui-*" } |
-    Select-Object -Last 1
-
-if (-not $CupertinoUiDir) {
-    throw "cupertino_ui package not found in pub cache"
-}
+$CupertinoUiDir = Get-Item -LiteralPath (Get-LockedUiDirectory "cupertino_ui") -ErrorAction Stop
 
 Write-Host "cupertino_ui dir: $($CupertinoUiDir.FullName)"
 

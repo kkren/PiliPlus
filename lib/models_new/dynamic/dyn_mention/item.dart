@@ -1,4 +1,4 @@
-import 'package:PiliPlus/pages/common/multi_select/base.dart';
+import 'package:PiliPlus/pages/common/multi_select/data.dart';
 
 class MentionItem with MultiSelectData {
   final String? face;

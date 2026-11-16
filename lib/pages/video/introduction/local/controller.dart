@@ -80,6 +80,7 @@ class LocalIntroController extends CommonIntroController {
         final (double offset, double remain) = calcFixedItemOffset(
           index: index,
           itemCount: list.length,
+          // bottomPadding: ignore view padding
         );
         try {
           final state = videoDetailCtr.scrollKey.currentState;
@@ -123,9 +124,7 @@ class LocalIntroController extends CommonIntroController {
       final playCtr = videoDetailCtr.plPlayerController;
       if (playCtr.playRepeat == PlayRepeat.listCycle) {
         if (list.length == 1) {
-          playCtr
-              .seekTo(Duration.zero, isSeek: false)
-              .whenComplete(playCtr.play);
+          playCtr.seekTo(Duration.zero).whenComplete(playCtr.play);
         } else {
           playIndex(0);
         }

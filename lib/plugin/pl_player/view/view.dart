@@ -909,7 +909,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       if (isNotFileSource && plPlayerController.showDmChart) .dmChart,
       if (plPlayerController.isAnim && plPlayerController.supportsMpvFeatures)
         .superResolution,
-      if (isNotFileSource && plPlayerController.showViewPoints) .viewPoints,
+      if (plPlayerController.showViewPoints) .viewPoints,
       if (isNotFileSource && anySeason) .episode,
       if (flag) .fit,
       if (isNotFileSource) .aiTranslate,
@@ -991,7 +991,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
       feedBack();
       plPlayerController
         ..position.value = seekToPos.inSeconds
-        ..seekTo(seekToPos, isSeek: false)
+        ..seekTo(seekToPos)
         ..seekToPos = null;
     } else {
       plPlayerController.position.value =
@@ -1058,10 +1058,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
         if (!plPlayerController.hasToasted) {
           plPlayerController
             ..seekToPos = null
-            ..hasToasted = true;
-          if (plPlayerController.showSeekPreview) {
-            plPlayerController.showPreview.value = false;
-          }
+            ..hasToasted = true
+            ..hidePreviewIfNeeded();
           SmartDialog.showAttach(
             targetContext: context,
             alignment: .center,
@@ -1787,10 +1785,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                                     if (!plPlayerController
                                         .controlsLock
                                         .value) {
-                                      plPlayerController.seekTo(
-                                        position,
-                                        isSeek: false,
-                                      );
+                                      plPlayerController.seekTo(position);
                                     }
                                   }
                                 : null,
@@ -2418,10 +2413,8 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
                     Icons.gps_fixed_outlined,
                     color: Colors.white,
                   ),
-                  onTap: () => plPlayerController.seekTo(
-                    Duration(seconds: seekOffset),
-                    isSeek: false,
-                  ),
+                  onTap: () =>
+                      plPlayerController.seekTo(Duration(seconds: seekOffset)),
                 ),
             ],
             LiveDanmaku() => [
